@@ -381,8 +381,10 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
   );
 };
 
-const TrendChart = ({ data }) => {
+const TrendChart = ({ data, year, quarter, onSelect }) => {
   if (!data?.length) return null;
+
+  const currentLabel = `${year.slice(2)}/${quarter}`;
 
   return (
     <div style={styles.chartBox}>
@@ -408,7 +410,7 @@ const TrendChart = ({ data }) => {
             yAxisId="right"
             orientation="right"
             tick={{ fontSize: 11, fill: '#c41e3a' }}
-            domain={[20, 25]}
+            domain={[15, 30]}
             label={{ value: '客単価（万円）', angle: 90, position: 'insideRight', fontSize: 11, fill: '#c41e3a' }}
           />
           <Tooltip 
@@ -418,7 +420,28 @@ const TrendChart = ({ data }) => {
             }}
           />
           <Legend wrapperStyle={{ fontSize: 12 }} />
-          <Bar yAxisId="left" dataKey="total" name="消費額" fill="#1a1a1a" radius={[2, 2, 0, 0]} />
+          <Bar 
+            yAxisId="left" 
+            dataKey="total" 
+            name="消費額" 
+            radius={[2, 2, 0, 0]}
+            onClick={(data) => {
+              if (onSelect && data?.label) {
+                const [y, q] = data.label.split('/');
+                onSelect(`20${y}`, q);
+              }
+            }}
+            cursor="pointer"
+          >
+            {data.map((entry, index) => (
+              <Cell 
+                key={`cell-${index}`} 
+                fill={entry.label === currentLabel ? '#c41e3a' : '#1a1a1a'} 
+                fillOpacity={entry.label === currentLabel ? 1 : 0.7}
+              />
+            ))}
+          </Bar>
+          <Line yAxisId="right" type="monotone" dataKey="perPerson" name="客単価" stroke="#c41e3a" strokeWidth={2} dot={{ r: 3, fill: '#c41e3a' }} />
           <Line yAxisId="right" type="monotone" dataKey="perPerson" name="客単価" stroke="#c41e3a" strokeWidth={2} dot={{ r: 3, fill: '#c41e3a' }} />
         </ComposedChart>
       </ResponsiveContainer>
@@ -694,48 +717,61 @@ export default function App() {
         </div>
       </header>
 
-      <div style={styles.controls}>
-        <div style={styles.controlItem}>
-          <select value={year} onChange={(e) => setYear(e.target.value)} style={styles.select}>
-            <option value="2025">2025年</option>
-            <option value="2024">2024年</option>
-            <option value="2023">2023年</option>
-          </select>
-        </div>
-        <div style={styles.quarterGroup}>
-          {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
-            <button
-              key={q}
-              onClick={() => setQuarter(q)}
-              style={{ ...styles.quarterBtn, ...(quarter === q ? styles.quarterActive : {}) }}
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <InsightsSummary data={expenseData} previousData={previousExpenseData} loading={loading} />
-
-      <nav style={styles.tabs}>
-        {[
-          { id: 'overview', label: '国別', icon: '🌏' },
-          { id: 'matrix', label: 'マトリクス', icon: '📈' },
-          { id: 'composition', label: '費目構成', icon: '📊' }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{ ...styles.tab, ...(activeTab === tab.id ? styles.tabActive : {}) }}
-          >
-            <span style={styles.tabIcon}>{tab.icon}</span> {tab.label}
-          </button>
-        ))}
-      </nav>
-
       <main style={styles.main}>
         {error && <div style={styles.errorBox}>{error}</div>}
         
+        {/* 사분기별 추이 차트 - 항상 먼저 표시 */}
+        <TrendChart 
+          data={trendData} 
+          year={year} 
+          quarter={quarter}
+          onSelect={(newYear, newQuarter) => {
+            setYear(newYear);
+            setQuarter(newQuarter);
+          }}
+        />
+
+        {/* 년도/분기 선택 - 차트 아래 */}
+        <div style={styles.periodSelector}>
+          <span style={styles.periodLabel}>期間選択</span>
+          <div style={styles.controls}>
+            <select value={year} onChange={(e) => setYear(e.target.value)} style={styles.select}>
+              <option value="2025">2025年</option>
+              <option value="2024">2024年</option>
+              <option value="2023">2023年</option>
+            </select>
+            <div style={styles.quarterGroup}>
+              {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
+                <button
+                  key={q}
+                  onClick={() => setQuarter(q)}
+                  style={{ ...styles.quarterBtn, ...(quarter === q ? styles.quarterActive : {}) }}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <InsightsSummary data={expenseData} previousData={previousExpenseData} loading={loading} />
+
+        <nav style={styles.tabs}>
+          {[
+            { id: 'overview', label: '国別', icon: '🌏' },
+            { id: 'matrix', label: 'マトリクス', icon: '📈' },
+            { id: 'composition', label: '費目構成', icon: '📊' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{ ...styles.tab, ...(activeTab === tab.id ? styles.tabActive : {}) }}
+            >
+              <span style={styles.tabIcon}>{tab.icon}</span> {tab.label}
+            </button>
+          ))}
+        </nav>
+
         {loading ? (
           <div style={styles.loadingBox}>
             <div style={styles.spinner} />
@@ -752,7 +788,6 @@ export default function App() {
                     <KPICard label="買物代比率" value={formatNumber(kpiData.shopRatio.value, 1)} unit="%" change={kpiData.shopRatio.change} />
                   </div>
                 )}
-                <TrendChart data={trendData} />
                 <div style={{ marginTop: 24 }}>
                   <CountryList
                     data={expenseData}
@@ -807,14 +842,26 @@ const styles = {
     opacity: 0.7,
     fontWeight: 400
   },
-  controls: {
-    maxWidth: 1080,
-    margin: '0 auto',
-    padding: '16px 20px',
+  periodSelector: {
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 16,
-    borderBottom: '1px solid #e2e8f0'
+    padding: '20px 0',
+    marginTop: 16,
+    backgroundColor: '#fff',
+    border: '1px solid #e2e8f0',
+    borderRadius: 6
+  },
+  periodLabel: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#4a5568'
+  },
+  controls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12
   },
   controlItem: {},
   select: {
