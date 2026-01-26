@@ -72,10 +72,18 @@ const getRegionForCountry = (country) => {
   return 'その他';
 };
 
-const fetchSheetData = async (sheetName) => {
+// API 요청 딜레이 (429 에러 방지)
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const fetchSheetData = async (sheetName, retries = 2) => {
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}?key=${API_KEY}`;
   try {
     const response = await fetch(url);
+    if (response.status === 429 && retries > 0) {
+      // Rate limit - 잠시 대기 후 재시도
+      await delay(1000);
+      return fetchSheetData(sheetName, retries - 1);
+    }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     return data.values || [];
@@ -83,6 +91,16 @@ const fetchSheetData = async (sheetName) => {
     console.error(`Error fetching ${sheetName}:`, error);
     return [];
   }
+};
+
+// 순차적으로 API 호출 (동시 요청 제한)
+const fetchSequential = async (requests, delayMs = 100) => {
+  const results = [];
+  for (const req of requests) {
+    results.push(await req());
+    if (delayMs > 0) await delay(delayMs);
+  }
+  return results;
 };
 
 const InsightsSummary = ({ data, previousData, loading }) => {
@@ -606,30 +624,11 @@ export default function App() {
         setExpenseData(merged);
         setPreviousExpenseData(mergedPrev);
         
-        const salesCountries = ['韓国', '中国', '台湾', '香港', '米国', 'タイ', 'ベトナム', 'オーストラリア', 'シンガポール'];
-        // 실제 비용 항목 리스트 (이것만 추출)
-        const validItems = ['宿泊費', '飲食費', '交通費', '娯楽等サービス費', '買物代', '菓子類', '酒類', '化粧品・香水', '医薬品・健康グッズ', '衣類', 'カバン・靴', '電気製品', 'マンガ・アニメ関連商品', 'その他買物代'];
-        const salesResults = await Promise.all(
-          salesCountries.map(async (country) => {
-            const rows = await fetchSheetData(`営業_${country}`);
-            if (!rows || rows.length < 2) return { country, data: [] };
-            return {
-              country,
-              data: rows.map(row => ({
-                item: row[0] || '',
-                y2024: parseNumber(row[1]),
-                y2025: parseNumber(row[2]),
-                yoy: parseNumber(row[3])
-              })).filter(d => validItems.includes(d.item) && d.y2024 > 0)
-            };
-          })
-        );
+        // 영업 시트는 국가 확장 시에만 로드하도록 일단 비활성화 (API 요청 절감)
+        // 필요시 개별 국가 클릭할 때 로드
+        setSalesData({});
         
-        const salesMap = {};
-        salesResults.forEach(r => { if (r.data.length) salesMap[r.country] = r.data; });
-        setSalesData(salesMap);
-        
-        // 분기별 추이 데이터 로드 (2023~2025년)
+        // 분기별 추이 데이터 로드 (2023~2025년) - 순차적으로 로드
         const quarters = [];
         for (const y of ['2023', '2024', '2025']) {
           for (const q of ['Q1', 'Q2', 'Q3', 'Q4']) {
@@ -637,25 +636,25 @@ export default function App() {
           }
         }
         
-        const trendResults = await Promise.all(
-          quarters.map(async ({ year, quarter, label }) => {
-            const [exp, vis] = await Promise.all([
-              fetchSheetData(`${year}_${quarter}_図表3`),
-              fetchSheetData(`${year}_${quarter}_図表4`)
-            ]);
-            
-            if (!exp || exp.length < 5) return null;
-            
-            const totalRow = exp[4]; // 全国籍・地域 행
+        // 순차적으로 로드 (딜레이 포함)
+        const trendResults = [];
+        for (const { year: tYear, quarter: tQuarter, label } of quarters) {
+          await delay(80); // 각 요청 사이 80ms 딜레이
+          const [exp, vis] = await Promise.all([
+            fetchSheetData(`${tYear}_${tQuarter}_図表3`),
+            fetchSheetData(`${tYear}_${tQuarter}_図表4`)
+          ]);
+          
+          if (exp && exp.length >= 5) {
+            const totalRow = exp[4];
             const visitorRow = vis && vis.length >= 5 ? vis[4] : null;
-            
-            return {
+            trendResults.push({
               label,
               total: parseNumber(totalRow?.[1]) || 0,
               perPerson: visitorRow ? (parseNumber(visitorRow[1]) / 10000) : 0
-            };
-          })
-        );
+            });
+          }
+        }
         
         setTrendData(trendResults.filter(d => d && d.total > 0));
         
