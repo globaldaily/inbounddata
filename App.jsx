@@ -418,7 +418,7 @@ const TrendChart = ({ data, year, quarter, onSelect }) => {
       <text 
         x={x + width / 2} 
         y={y - 8} 
-        fill={isSelected ? '#c41e3a' : '#4a5568'}
+        fill={isSelected ? '#1d4ed8' : '#4a5568'}
         fontSize={10}
         fontWeight={isSelected ? 700 : 500}
         textAnchor="middle"
@@ -511,8 +511,10 @@ const TrendChart = ({ data, year, quarter, onSelect }) => {
             {data.map((entry, index) => (
               <Cell 
                 key={`cell-${index}`} 
-                fill={entry.label === currentLabel ? '#c41e3a' : '#4a90a4'} 
-                fillOpacity={entry.label === currentLabel ? 1 : 0.85}
+                fill={entry.label === currentLabel ? '#2563eb' : '#4a90a4'} 
+                fillOpacity={entry.label === currentLabel ? 1 : 0.75}
+                stroke={entry.label === currentLabel ? '#1d4ed8' : 'none'}
+                strokeWidth={entry.label === currentLabel ? 2 : 0}
               />
             ))}
           </Bar>
@@ -743,7 +745,7 @@ export default function App() {
         setExpenseData(merged);
         setPreviousExpenseData(mergedPrev);
         
-        // 영업 시트는 국가 확장 시에만 로드하도록 일단 비활성화 (API 요청 절감)
+        // 년도/분기 변경 시 영업 데이터 초기화 (새로 로드 필요)
         setSalesData({});
         
       } catch (err) {
@@ -756,6 +758,43 @@ export default function App() {
     
     loadData();
   }, [year, quarter]);
+
+  // 국가 확장 시 해당 국가의 영업(買物상세) 데이터 로드
+  useEffect(() => {
+    const loadSalesData = async () => {
+      if (!expandedCountry) return;
+      
+      // 이미 로드된 데이터가 있으면 스킵
+      if (salesData[expandedCountry]) return;
+      
+      // 영업 시트가 있는 국가 목록
+      const salesCountries = ['韓国', '中国', '台湾', '香港', '米国', 'タイ', 'ベトナム', 'オーストラリア', 'シンガポール'];
+      if (!salesCountries.includes(expandedCountry)) return;
+      
+      try {
+        await delay(100);
+        const rows = await fetchSheetData(`営業_${expandedCountry}`);
+        if (!rows || rows.length < 2) return;
+        
+        const validItems = ['宿泊費', '飲食費', '交通費', '娯楽等サービス費', '買物代', '菓子類', '酒類', '化粧品・香水', '医薬品・健康グッズ', '衣類', 'カバン・靴', '電気製品', 'マンガ・アニメ関連商品', 'その他買物代'];
+        
+        const countryData = rows.map(row => ({
+          item: row[0] || '',
+          y2024: parseNumber(row[1]),
+          y2025: parseNumber(row[2]),
+          yoy: parseNumber(row[3])
+        })).filter(d => validItems.includes(d.item) && d.y2024 > 0);
+        
+        if (countryData.length > 0) {
+          setSalesData(prev => ({ ...prev, [expandedCountry]: countryData }));
+        }
+      } catch (err) {
+        console.error(`Error loading sales data for ${expandedCountry}:`, err);
+      }
+    };
+    
+    loadSalesData();
+  }, [expandedCountry]);
 
   const kpiData = useMemo(() => {
     const total = expenseData[0];
