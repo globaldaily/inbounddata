@@ -47,6 +47,30 @@ const REGION_COLORS = {
   'その他': '#a0aec0'
 };
 
+// ============================================================
+// 📊 트렌드 데이터 (하드코딩)
+// 새 분기 데이터 추가 시 여기에 1줄 추가하세요!
+// 형식: { label: 'YY/Q#', total: 소비액(억엔), perPerson: 객단가(만엔) }
+// ============================================================
+const TREND_DATA = [
+  // 2023년 (観光庁 PDF에서 추출)
+  { label: '23/Q1', total: 10103, perPerson: 21.1 },
+  { label: '23/Q2', total: 12319, perPerson: 20.9 },
+  { label: '23/Q3', total: 13801, perPerson: 20.9 },
+  { label: '23/Q4', total: 16831, perPerson: 22.0 },
+  // 2024년
+  { label: '24/Q1', total: 17505, perPerson: 20.9 },
+  { label: '24/Q2', total: 18471, perPerson: 23.3 },
+  { label: '24/Q3', total: 19023, perPerson: 21.9 },
+  { label: '24/Q4', total: 22969, perPerson: 22.8 },
+  // 2025년 - 새 분기 발표 시 아래에 추가
+  { label: '25/Q1', total: 20912, perPerson: 22.8 },
+  { label: '25/Q2', total: 21638, perPerson: 23.3 },
+  { label: '25/Q3', total: 21158, perPerson: 23.4 },
+  { label: '25/Q4', total: 24685, perPerson: 23.7 },
+  // ↓ 2026년 Q1 발표 시 여기에 추가 ↓
+];
+
 const parseNumber = (str) => {
   if (!str) return 0;
   const cleaned = String(str).replace(/,/g, '').replace(/円/g, '').replace(/泊/g, '').replace(/人/g, '').trim();
@@ -579,7 +603,9 @@ export default function App() {
   const [previousExpenseData, setPreviousExpenseData] = useState([]);
   const [salesData, setSalesData] = useState({});
   const [expandedCountry, setExpandedCountry] = useState(null);
-  const [trendData, setTrendData] = useState([]);
+  
+  // 트렌드 데이터는 하드코딩 사용 (API 호출 절감)
+  const trendData = TREND_DATA;
 
   useEffect(() => {
     const loadData = async () => {
@@ -589,20 +615,21 @@ export default function App() {
       // 년도/쿼터 변경 시 이전 데이터 초기화 (빈 화면 버그 방지)
       setExpenseData([]);
       setPreviousExpenseData([]);
-      setTrendData([]);
       setExpandedCountry(null);
       
       try {
-        const [expense, visitor] = await Promise.all([
-          fetchSheetData(`${year}_${quarter}_図表3`),
-          fetchSheetData(`${year}_${quarter}_図表4`)
-        ]);
+        // 1단계: 현재 년도 데이터 로드 (가장 중요)
+        await delay(100);
+        const expense = await fetchSheetData(`${year}_${quarter}_図表3`);
+        await delay(200);
+        const visitor = await fetchSheetData(`${year}_${quarter}_図表4`);
         
+        // 2단계: 전년도 데이터 로드
         const prevYear = String(parseInt(year) - 1);
-        const [prevExpense, prevVisitor] = await Promise.all([
-          fetchSheetData(`${prevYear}_${quarter}_図表3`),
-          fetchSheetData(`${prevYear}_${quarter}_図表4`)
-        ]);
+        await delay(200);
+        const prevExpense = await fetchSheetData(`${prevYear}_${quarter}_図表3`);
+        await delay(200);
+        const prevVisitor = await fetchSheetData(`${prevYear}_${quarter}_図表4`);
         
         const parseExpense = (rows) => {
           if (!rows || rows.length < 5) return [];
@@ -648,38 +675,7 @@ export default function App() {
         setPreviousExpenseData(mergedPrev);
         
         // 영업 시트는 국가 확장 시에만 로드하도록 일단 비활성화 (API 요청 절감)
-        // 필요시 개별 국가 클릭할 때 로드
         setSalesData({});
-        
-        // 분기별 추이 데이터 로드 (2023~2025년) - 순차적으로 로드
-        const quarters = [];
-        for (const y of ['2023', '2024', '2025']) {
-          for (const q of ['Q1', 'Q2', 'Q3', 'Q4']) {
-            quarters.push({ year: y, quarter: q, label: `${y.slice(2)}/${q}` });
-          }
-        }
-        
-        // 순차적으로 로드 (딜레이 포함)
-        const trendResults = [];
-        for (const { year: tYear, quarter: tQuarter, label } of quarters) {
-          await delay(80); // 각 요청 사이 80ms 딜레이
-          const [exp, vis] = await Promise.all([
-            fetchSheetData(`${tYear}_${tQuarter}_図表3`),
-            fetchSheetData(`${tYear}_${tQuarter}_図表4`)
-          ]);
-          
-          if (exp && exp.length >= 5) {
-            const totalRow = exp[4];
-            const visitorRow = vis && vis.length >= 5 ? vis[4] : null;
-            trendResults.push({
-              label,
-              total: parseNumber(totalRow?.[1]) || 0,
-              perPerson: visitorRow ? (parseNumber(visitorRow[1]) / 10000) : 0
-            });
-          }
-        }
-        
-        setTrendData(trendResults.filter(d => d && d.total > 0));
         
       } catch (err) {
         console.error(err);
