@@ -15,6 +15,31 @@ const REGION_GROUPS = {
   'その他': ['インド', 'その他']
 };
 
+// 국기 이모지 매핑
+const COUNTRY_FLAGS = {
+  '韓国': '🇰🇷',
+  '台湾': '🇹🇼',
+  '香港': '🇭🇰',
+  '中国': '🇨🇳',
+  'タイ': '🇹🇭',
+  'シンガポール': '🇸🇬',
+  'マレーシア': '🇲🇾',
+  'インドネシア': '🇮🇩',
+  'フィリピン': '🇵🇭',
+  'ベトナム': '🇻🇳',
+  '米国': '🇺🇸',
+  'カナダ': '🇨🇦',
+  '英国': '🇬🇧',
+  'ドイツ': '🇩🇪',
+  'フランス': '🇫🇷',
+  'イタリア': '🇮🇹',
+  'スペイン': '🇪🇸',
+  'オーストラリア': '🇦🇺',
+  'ロシア': '🇷🇺',
+  'インド': '🇮🇳',
+  'その他': '🌐'
+};
+
 const REGION_COLORS = {
   '東アジア': '#1a1a1a',
   '東南アジア': '#c41e3a',
@@ -101,13 +126,21 @@ const InsightsSummary = ({ data, previousData, loading }) => {
       {insights.map((item, idx) => (
         <div key={idx} style={styles.insightItem}>
           {item.type === 'growth' && (
-            <span><strong>{item.country}</strong> +{item.value.toFixed(1)}%</span>
+            <span style={styles.insightGrowth}>
+              <span style={styles.insightFlag}>{COUNTRY_FLAGS[item.country] || '🌐'}</span>
+              <strong>{item.country}</strong> <span style={styles.insightArrowUp}>↑</span> +{item.value.toFixed(1)}%
+            </span>
           )}
           {item.type === 'decline' && (
-            <span><strong>{item.country}</strong> {item.value.toFixed(1)}%</span>
+            <span style={styles.insightDecline}>
+              <span style={styles.insightFlag}>{COUNTRY_FLAGS[item.country] || '🌐'}</span>
+              <strong>{item.country}</strong> <span style={styles.insightArrowDown}>↓</span> {item.value.toFixed(1)}%
+            </span>
           )}
           {item.type === 'total' && (
-            <span>市場全体 {item.value >= 0 ? '+' : ''}{item.value.toFixed(1)}%（{formatNumber(item.amount)}億円）</span>
+            <span style={styles.insightTotal}>
+              📊 市場全体 {item.value >= 0 ? <span style={styles.insightArrowUp}>↑</span> : <span style={styles.insightArrowDown}>↓</span>} {item.value >= 0 ? '+' : ''}{item.value.toFixed(1)}%（{formatNumber(item.amount)}億円）
+            </span>
           )}
         </div>
       ))}
@@ -115,14 +148,25 @@ const InsightsSummary = ({ data, previousData, loading }) => {
   );
 };
 
+const KPI_ICONS = {
+  '総消費額': '💰',
+  '訪日客数': '✈️',
+  '客単価': '👤',
+  '買物代比率': '🛍️'
+};
+
 const KPICard = ({ label, value, unit, change, note }) => (
   <div style={styles.kpiCard}>
-    <div style={styles.kpiLabel}>{label}</div>
+    <div style={styles.kpiHeader}>
+      <span style={styles.kpiIcon}>{KPI_ICONS[label] || '📊'}</span>
+      <span style={styles.kpiLabel}>{label}</span>
+    </div>
     <div style={styles.kpiValue}>
       {value}<span style={styles.kpiUnit}>{unit}</span>
     </div>
     {change && (
-      <div style={{ ...styles.kpiChange, color: change.isPositive ? '#1a1a1a' : '#c41e3a' }}>
+      <div style={{ ...styles.kpiChange, color: change.isPositive ? '#16a34a' : '#c41e3a' }}>
+        <span style={styles.changeArrow}>{change.isPositive ? '↑' : '↓'}</span>
         {change.isPositive ? '+' : ''}{change.percent.toFixed(1)}% 前年比
       </div>
     )}
@@ -160,6 +204,7 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
     const region = getRegionForCountry(item.country);
     const isExpanded = expandedCountry === item.country;
     const countrySales = salesData?.[item.country];
+    const flag = COUNTRY_FLAGS[item.country] || '🌐';
 
     return (
       <div key={item.country} style={styles.countryRow}>
@@ -169,6 +214,7 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
         >
           <div style={styles.countryLeft}>
             {viewMode === 'ranking' && <span style={styles.rank}>{rank}</span>}
+            <span style={styles.flag}>{flag}</span>
             <span style={{ ...styles.regionIndicator, backgroundColor: REGION_COLORS[region] }} />
             <span style={styles.countryName}>{item.country}</span>
           </div>
@@ -191,12 +237,12 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
               <div style={styles.sectionTitle}>費目別内訳</div>
               <div style={styles.expenseGrid}>
                 {[
-                  { key: 'accommodation', label: '宿泊' },
-                  { key: 'food', label: '飲食' },
-                  { key: 'transport', label: '交通' },
-                  { key: 'entertainment', label: '娯楽' },
-                  { key: 'shopping', label: '買物' },
-                  { key: 'other', label: 'その他' }
+                  { key: 'accommodation', label: '宿泊', icon: '🏨' },
+                  { key: 'food', label: '飲食', icon: '🍽️' },
+                  { key: 'transport', label: '交通', icon: '🚃' },
+                  { key: 'entertainment', label: '娯楽', icon: '🎭' },
+                  { key: 'shopping', label: '買物', icon: '🛒' },
+                  { key: 'other', label: 'その他', icon: '📦' }
                 ].map(exp => {
                   const val = item[exp.key] || 0;
                   const prevVal = prev?.[exp.key] || 0;
@@ -206,14 +252,14 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
                   return (
                     <div key={exp.key} style={styles.expenseItem}>
                       <div style={styles.expenseLabel}>
-                        <span>{exp.label}</span>
+                        <span><span style={styles.expenseIcon}>{exp.icon}</span> {exp.label}</span>
                         <span style={styles.expenseRatio}>{ratio.toFixed(0)}%</span>
                       </div>
                       <div style={styles.expenseValue}>
                         {formatNumber(val)}億円
                         {expChange && (
-                          <span style={{ marginLeft: 8, fontSize: 11, color: expChange.isPositive ? '#1a1a1a' : '#c41e3a' }}>
-                            {expChange.isPositive ? '+' : ''}{expChange.percent.toFixed(1)}%
+                          <span style={{ marginLeft: 8, fontSize: 11, color: expChange.isPositive ? '#16a34a' : '#c41e3a' }}>
+                            {expChange.isPositive ? '↑' : '↓'}{Math.abs(expChange.percent).toFixed(1)}%
                           </span>
                         )}
                       </div>
@@ -293,10 +339,17 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
           const regionData = groupedByRegion[region];
           if (!regionData?.length) return null;
           const regionTotal = regionData.reduce((s, d) => s + (d.total || 0), 0);
+          const regionIcons = {
+            '東アジア': '🌏',
+            '東南アジア': '🌴',
+            '欧米豪': '🌍',
+            'その他': '🌐'
+          };
           
           return (
             <div key={region} style={styles.regionBlock}>
               <div style={styles.regionHeader}>
+                <span style={styles.regionIcon}>{regionIcons[region]}</span>
                 <span style={{ ...styles.regionIndicator, backgroundColor: REGION_COLORS[region] }} />
                 <span style={styles.regionName}>{region}</span>
                 <span style={styles.regionTotal}>{formatNumber(regionTotal)}億円</span>
@@ -432,10 +485,11 @@ const MatrixChart = ({ data, previousData }) => {
             content={({ payload }) => {
               if (!payload?.[0]) return null;
               const d = payload[0].payload;
+              const flag = COUNTRY_FLAGS[d.country] || '🌐';
               return (
                 <div style={styles.tooltip}>
-                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{d.country}</div>
-                  <div>成長率: {d.growth.toFixed(1)}%</div>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{flag} {d.country}</div>
+                  <div>成長率: {d.growth >= 0 ? '+' : ''}{d.growth.toFixed(1)}%</div>
                   <div>客単価: {d.perPerson.toFixed(1)}万円</div>
                   <div>消費額: {formatNumber(d.total)}億円</div>
                 </div>
@@ -647,16 +701,16 @@ export default function App() {
 
       <nav style={styles.tabs}>
         {[
-          { id: 'overview', label: '国別' },
-          { id: 'matrix', label: 'マトリクス' },
-          { id: 'composition', label: '費目構成' }
+          { id: 'overview', label: '国別', icon: '🌏' },
+          { id: 'matrix', label: 'マトリクス', icon: '📈' },
+          { id: 'composition', label: '費目構成', icon: '📊' }
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             style={{ ...styles.tab, ...(activeTab === tab.id ? styles.tabActive : {}) }}
           >
-            {tab.label}
+            <span style={styles.tabIcon}>{tab.icon}</span> {tab.label}
           </button>
         ))}
       </nav>
@@ -785,6 +839,32 @@ const styles = {
     borderBottom: '1px solid #e2e8f0'
   },
   insightItem: {},
+  insightFlag: {
+    marginRight: 4
+  },
+  insightGrowth: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4
+  },
+  insightDecline: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4
+  },
+  insightTotal: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4
+  },
+  insightArrowUp: {
+    color: '#16a34a',
+    fontWeight: 700
+  },
+  insightArrowDown: {
+    color: '#c41e3a',
+    fontWeight: 700
+  },
   tabs: {
     maxWidth: 1080,
     margin: '0 auto',
@@ -802,7 +882,13 @@ const styles = {
     backgroundColor: 'transparent',
     color: '#718096',
     cursor: 'pointer',
-    transition: 'all 0.15s'
+    transition: 'all 0.15s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6
+  },
+  tabIcon: {
+    fontSize: 14
   },
   tabActive: {
     color: '#1a1a1a',
@@ -823,12 +909,22 @@ const styles = {
     padding: 20,
     backgroundColor: '#fff',
     border: '1px solid #e2e8f0',
-    borderRadius: 6
+    borderRadius: 6,
+    position: 'relative',
+    overflow: 'hidden'
+  },
+  kpiHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8
+  },
+  kpiIcon: {
+    fontSize: 14
   },
   kpiLabel: {
     fontSize: 12,
-    color: '#718096',
-    marginBottom: 8
+    color: '#718096'
   },
   kpiValue: {
     fontSize: 'clamp(26px, 5vw, 32px)',
@@ -843,7 +939,13 @@ const styles = {
   },
   kpiChange: {
     fontSize: 12,
-    marginTop: 6
+    marginTop: 6,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4
+  },
+  changeArrow: {
+    fontWeight: 700
   },
   kpiNote: {
     fontSize: 11,
@@ -908,6 +1010,10 @@ const styles = {
     fontWeight: 600,
     color: '#718096'
   },
+  flag: {
+    fontSize: 18,
+    lineHeight: 1
+  },
   regionIndicator: {
     width: 6,
     height: 6,
@@ -966,6 +1072,9 @@ const styles = {
     fontSize: 12,
     color: '#4a5568',
     marginBottom: 4
+  },
+  expenseIcon: {
+    marginRight: 2
   },
   expenseRatio: {
     fontWeight: 600
@@ -1034,6 +1143,9 @@ const styles = {
     gap: 10,
     padding: '14px 20px',
     backgroundColor: '#f7f7f7'
+  },
+  regionIcon: {
+    fontSize: 16
   },
   regionName: {
     fontSize: 13,
