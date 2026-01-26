@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, Cell, ComposedChart, ReferenceLine, LabelList } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, Cell, ComposedChart, Line, ReferenceLine, LabelList } from 'recharts';
 
 const SHEET_ID = '1hF1Z-3LLgzzzFwc66xVqEXszNm3qSH8Xwl6DT01dQRs';
 const API_KEY = 'AIzaSyAs_UERCv_a4ZCfrZI2XvThGMFPFRkStO0';
@@ -7,16 +7,14 @@ const API_KEY = 'AIzaSyAs_UERCv_a4ZCfrZI2XvThGMFPFRkStO0';
 const COLORS = {
   bg: '#ffffff', bgSection: '#f8f9fa', accent: '#0066cc', accentLight: '#e6f0ff',
   positive: '#10b981', negative: '#ef4444', text: '#1a1a2e', textMuted: '#6b7280',
-  border: '#e5e7eb', chart: ['#0066cc', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+  border: '#e5e7eb', chart: ['#0066cc', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+  prev: '#94a3b8', current: '#0066cc'
 };
 
 const COUNTRIES = ['韓国', '台湾', '香港', '中国', 'タイ', 'シンガポール', 'マレーシア', 'インドネシア', 'フィリピン', 'ベトナム', 'インド', '英国', 'ドイツ', 'フランス', 'イタリア', 'スペイン', 'ロシア', '米国', 'カナダ', 'オーストラリア'];
 
+// 분기별 추이 데이터 - 연속 데이터로 수정
 const quarterlyTrendData = [
-  { key: '2019-Q1', label: '19/1-3', total: 11517, perCapita: 14.7 },
-  { key: '2019-Q4', label: '19/10-12', total: 12128, perCapita: 16.3 },
-  { key: '2023-Q1', label: '23/1-3', total: 12319, perCapita: 20.9 },
-  { key: '2023-Q4', label: '23/10-12', total: 17700, perCapita: 21.1 },
   { key: '2024-Q1', label: '24/1-3', total: 17707, perCapita: 20.9 },
   { key: '2024-Q2', label: '24/4-6', total: 21402, perCapita: 23.2 },
   { key: '2024-Q3', label: '24/7-9', total: 19186, perCapita: 21.0 },
@@ -75,20 +73,52 @@ function parse図表4(data) {
   return results;
 }
 
+// 영업팀 시트 파싱 - 불필요한 행 필터링
 function parseSalesSheet(data) {
   if (!data || data.length < 5) return null;
   const products = [];
-  for (let i = 1; i < data.length; i++) {
+  
+  // 유효한 품목명 리스트
+  const validItems = [
+    '菓子類', '酒類', '生鮮農産物', 'その他食料品・飲料・たばこ',
+    '化粧品・香水', '医薬品', '健康グッズ・トイレタリー',
+    '衣類', '靴・かばん・革製品', '電気製品', 'カメラ・ビデオカメラ・時計',
+    '時計・フィルムカメラ', '宝石・貴金属', '民芸品・伝統工芸品',
+    '本・雑誌・ガイドブック', '書籍・絵葉書・CD・DVD', 
+    '音楽・映像・ゲームなど', 'その他買物代', 'マンガ・アニメ関連'
+  ];
+  
+  for (let i = 0; i < data.length; i++) {
     const row = data[i];
     if (!row || !row[0]) continue;
-    products.push({
-      name: row[0],
-      y2024: parseFloat(String(row[1]).replace(/,/g, '')) || 0,
-      y2025: parseFloat(String(row[2]).replace(/,/g, '')) || 0,
-      yoy: parseFloat(String(row[3]).replace(/[^0-9.-]/g, '')) || 0
-    });
+    
+    const itemName = String(row[0]).trim();
+    
+    // 불필요한 행 스킵: 숫자로 시작, PPT, 企画, 항목, --- 등
+    if (/^\d/.test(itemName)) continue;
+    if (itemName.includes('PPT')) continue;
+    if (itemName.includes('企画')) continue;
+    if (itemName.includes('項目')) continue;
+    if (itemName.includes('---')) continue;
+    if (itemName.includes('費目別')) continue;
+    if (itemName.includes('買物品目別')) continue;
+    if (itemName === '品目' || itemName === '') continue;
+    
+    // 유효한 품목인지 확인 (부분 일치도 허용)
+    const isValid = validItems.some(valid => itemName.includes(valid) || valid.includes(itemName));
+    if (!isValid && itemName.length < 3) continue;
+    
+    const y2024 = parseFloat(String(row[1] || '0').replace(/[^0-9.-]/g, '')) || 0;
+    const y2025 = parseFloat(String(row[2] || '0').replace(/[^0-9.-]/g, '')) || 0;
+    
+    // 둘 다 0이면 스킵
+    if (y2024 === 0 && y2025 === 0) continue;
+    
+    const yoy = y2024 > 0 ? ((y2025 - y2024) / y2024 * 100) : 0;
+    
+    products.push({ name: itemName, y2024, y2025, yoy });
   }
-  return products;
+  return products.length > 0 ? products : null;
 }
 
 export default function InboundDashboard() {
@@ -297,20 +327,22 @@ export default function InboundDashboard() {
           </div>
         )}
 
+        {/* 분기별 추이 차트 - 折れ線 추가 */}
         <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', border: `1px solid ${COLORS.border}`, marginBottom: '32px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>四半期の旅行消費額・1人当たり旅行支出の推移</h3>
           <p style={{ fontSize: '12px', color: COLORS.textMuted, marginBottom: '20px' }}>棒グラフ：消費額（億円）/ 折れ線：1人当たり支出（万円）</p>
           <ResponsiveContainer width="100%" height={320}>
             <ComposedChart data={quarterlyTrendData} margin={{ top: 20, right: 60, bottom: 20, left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
-              <XAxis dataKey="label" tick={{ fontSize: 10, fill: COLORS.textMuted }} />
-              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: COLORS.textMuted }} tickFormatter={(v) => v.toLocaleString()} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: COLORS.textMuted }} domain={[10, 30]} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: COLORS.textMuted }} />
+              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: COLORS.textMuted }} tickFormatter={(v) => v.toLocaleString()} domain={[0, 30000]} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: COLORS.textMuted }} domain={[15, 30]} tickFormatter={(v) => v.toFixed(0)} />
               <Tooltip formatter={(value, name) => name === '消費額' ? [`${value.toLocaleString()}億円`, name] : [`${value.toFixed(1)}万円`, name]} />
               <Legend />
               <Bar yAxisId="left" dataKey="total" name="消費額" radius={[4, 4, 0, 0]}>
                 {quarterlyTrendData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.key === selectedQuarter ? COLORS.accent : '#c7d2e8'} />)}
               </Bar>
+              <Line yAxisId="right" type="monotone" dataKey="perCapita" name="1人当たり支出" stroke={COLORS.negative} strokeWidth={2} dot={{ r: 4, fill: COLORS.negative }} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -365,18 +397,19 @@ export default function InboundDashboard() {
                           <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', color: COLORS.textMuted }}>📊 費目別消費額（億円）</h4>
                           <ResponsiveContainer width="100%" height={220}>
                             <BarChart data={[
-                              { name: '宿泊費', current: d.accommodation, prev: d.prev?.accommodation || 0 },
-                              { name: '飲食費', current: d.food, prev: d.prev?.food || 0 },
-                              { name: '交通費', current: d.transport, prev: d.prev?.transport || 0 },
-                              { name: '娯楽等', current: d.entertainment, prev: d.prev?.entertainment || 0 },
-                              { name: '買物代', current: d.shopping, prev: d.prev?.shopping || 0 },
+                              { name: '宿泊費', prev: d.prev?.accommodation || 0, current: d.accommodation },
+                              { name: '飲食費', prev: d.prev?.food || 0, current: d.food },
+                              { name: '交通費', prev: d.prev?.transport || 0, current: d.transport },
+                              { name: '娯楽等', prev: d.prev?.entertainment || 0, current: d.entertainment },
+                              { name: '買物代', prev: d.prev?.shopping || 0, current: d.shopping },
                             ]} barGap={2}>
                               <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
                               <XAxis dataKey="name" tick={{ fontSize: 11, fill: COLORS.textMuted }} />
                               <YAxis tick={{ fontSize: 11, fill: COLORS.textMuted }} />
                               <Tooltip formatter={(v) => [`${v.toLocaleString()}億円`]} />
-                              <Bar dataKey="prev" fill={COLORS.border} name={`${prevYear}年`} radius={[2, 2, 0, 0]} />
-                              <Bar dataKey="current" fill={COLORS.accent} name={`${currentYear}年`} radius={[2, 2, 0, 0]} />
+                              <Legend />
+                              <Bar dataKey="prev" fill={COLORS.prev} name={`${prevYear}年`} radius={[2, 2, 0, 0]} />
+                              <Bar dataKey="current" fill={COLORS.current} name={`${currentYear}年`} radius={[2, 2, 0, 0]} />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
@@ -433,7 +466,7 @@ export default function InboundDashboard() {
                           </table>
                         </div>
                       </div>
-                      {salesData[d.country] && (
+                      {salesData[d.country] && salesData[d.country].length > 0 && (
                         <div style={{ marginTop: '24px' }}>
                           <details style={{ background: COLORS.bgSection, borderRadius: '8px', overflow: 'hidden' }}>
                             <summary style={{ padding: '14px 16px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
