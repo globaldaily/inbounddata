@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer,
+  ResponsiveContainer, ComposedChart, Line,
   ScatterChart, Scatter, ZAxis, Cell
 } from 'recharts';
 
@@ -310,6 +310,51 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
   );
 };
 
+const TrendChart = ({ data }) => {
+  if (!data?.length) return null;
+
+  return (
+    <div style={styles.chartBox}>
+      <h3 style={styles.chartTitle}>四半期別推移（2023〜2025年）</h3>
+      <ResponsiveContainer width="100%" height={320}>
+        <ComposedChart data={data} margin={{ top: 20, right: 60, bottom: 20, left: 20 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis 
+            dataKey="label" 
+            tick={{ fontSize: 11, fill: '#4a5568' }}
+            interval={0}
+            angle={-45}
+            textAnchor="end"
+            height={60}
+          />
+          <YAxis 
+            yAxisId="left"
+            tick={{ fontSize: 11, fill: '#4a5568' }}
+            tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+            label={{ value: '消費額（億円）', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#4a5568' }}
+          />
+          <YAxis 
+            yAxisId="right"
+            orientation="right"
+            tick={{ fontSize: 11, fill: '#c41e3a' }}
+            domain={[20, 25]}
+            label={{ value: '客単価（万円）', angle: 90, position: 'insideRight', fontSize: 11, fill: '#c41e3a' }}
+          />
+          <Tooltip 
+            formatter={(value, name) => {
+              if (name === '消費額') return [`${formatNumber(value)}億円`, name];
+              return [`${value.toFixed(1)}万円`, name];
+            }}
+          />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+          <Bar yAxisId="left" dataKey="total" name="消費額" fill="#1a1a1a" radius={[2, 2, 0, 0]} />
+          <Line yAxisId="right" type="monotone" dataKey="perPerson" name="客単価" stroke="#c41e3a" strokeWidth={2} dot={{ r: 3, fill: '#c41e3a' }} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
 const CompositionChart = ({ data }) => {
   if (!data?.length) return null;
 
@@ -427,6 +472,7 @@ export default function App() {
   const [previousExpenseData, setPreviousExpenseData] = useState([]);
   const [salesData, setSalesData] = useState({});
   const [expandedCountry, setExpandedCountry] = useState(null);
+  const [trendData, setTrendData] = useState([]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -489,18 +535,20 @@ export default function App() {
         setPreviousExpenseData(mergedPrev);
         
         const salesCountries = ['韓国', '中国', '台湾', '香港', '米国', 'タイ', 'ベトナム', 'オーストラリア', 'シンガポール'];
+        // 실제 비용 항목 리스트 (이것만 추출)
+        const validItems = ['宿泊費', '飲食費', '交通費', '娯楽等サービス費', '買物代', '菓子類', '酒類', '化粧品・香水', '医薬品・健康グッズ', '衣類', 'カバン・靴', '電気製品', 'マンガ・アニメ関連商品', 'その他買物代'];
         const salesResults = await Promise.all(
           salesCountries.map(async (country) => {
             const rows = await fetchSheetData(`営業_${country}`);
             if (!rows || rows.length < 2) return { country, data: [] };
             return {
               country,
-              data: rows.slice(1).map(row => ({
+              data: rows.map(row => ({
                 item: row[0] || '',
                 y2024: parseNumber(row[1]),
                 y2025: parseNumber(row[2]),
                 yoy: parseNumber(row[3])
-              })).filter(d => d.item)
+              })).filter(d => validItems.includes(d.item) && d.y2024 > 0)
             };
           })
         );
@@ -508,6 +556,36 @@ export default function App() {
         const salesMap = {};
         salesResults.forEach(r => { if (r.data.length) salesMap[r.country] = r.data; });
         setSalesData(salesMap);
+        
+        // 분기별 추이 데이터 로드 (2023~2025년)
+        const quarters = [];
+        for (const y of ['2023', '2024', '2025']) {
+          for (const q of ['Q1', 'Q2', 'Q3', 'Q4']) {
+            quarters.push({ year: y, quarter: q, label: `${y.slice(2)}/${q}` });
+          }
+        }
+        
+        const trendResults = await Promise.all(
+          quarters.map(async ({ year, quarter, label }) => {
+            const [exp, vis] = await Promise.all([
+              fetchSheetData(`${year}_${quarter}_図表3`),
+              fetchSheetData(`${year}_${quarter}_図表4`)
+            ]);
+            
+            if (!exp || exp.length < 5) return null;
+            
+            const totalRow = exp[4]; // 全国籍・地域 행
+            const visitorRow = vis && vis.length >= 5 ? vis[4] : null;
+            
+            return {
+              label,
+              total: parseNumber(totalRow?.[1]) || 0,
+              perPerson: visitorRow ? (parseNumber(visitorRow[1]) / 10000) : 0
+            };
+          })
+        );
+        
+        setTrendData(trendResults.filter(d => d && d.total > 0));
         
       } catch (err) {
         console.error(err);
@@ -602,13 +680,16 @@ export default function App() {
                     <KPICard label="買物代比率" value={formatNumber(kpiData.shopRatio.value, 1)} unit="%" change={kpiData.shopRatio.change} />
                   </div>
                 )}
-                <CountryList
-                  data={expenseData}
-                  previousData={previousExpenseData}
-                  expandedCountry={expandedCountry}
-                  setExpandedCountry={setExpandedCountry}
-                  salesData={salesData}
-                />
+                <TrendChart data={trendData} />
+                <div style={{ marginTop: 24 }}>
+                  <CountryList
+                    data={expenseData}
+                    previousData={previousExpenseData}
+                    expandedCountry={expandedCountry}
+                    setExpandedCountry={setExpandedCountry}
+                    salesData={salesData}
+                  />
+                </div>
               </>
             )}
             {activeTab === 'matrix' && <MatrixChart data={expenseData} previousData={previousExpenseData} />}
