@@ -1,263 +1,227 @@
-import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import React, { useState, useEffect, useMemo } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, Cell, ComposedChart, ReferenceLine, LabelList } from 'recharts';
 
-// Google Sheets 설정
 const SHEET_ID = '1hF1Z-3LLgzzzFwc66xVqEXszNm3qSH8Xwl6DT01dQRs';
 const API_KEY = 'AIzaSyAs_UERCv_a4ZCfrZI2XvThGMFPFRkStO0';
 
-const COLORS = ['#0066cc', '#00a0e9', '#00c8ff', '#5fd3f3', '#99e0f7', '#cceefb', '#ff6b6b', '#ffa94d', '#69db7c', '#da77f2'];
+const COLORS = {
+  bg: '#ffffff', bgSection: '#f8f9fa', accent: '#0066cc', accentLight: '#e6f0ff',
+  positive: '#10b981', negative: '#ef4444', text: '#1a1a2e', textMuted: '#6b7280',
+  border: '#e5e7eb', chart: ['#0066cc', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+};
 
-// 영업팀 대상 9개국
-const SALES_COUNTRIES = ['韓国', '台湾', '香港', '中国', 'タイ', 'シンガポール', 'マレーシア', '米国', 'オーストラリア'];
+const COUNTRIES = ['韓国', '台湾', '香港', '中国', 'タイ', 'シンガポール', 'マレーシア', 'インドネシア', 'フィリピン', 'ベトナム', 'インド', '英国', 'ドイツ', 'フランス', 'イタリア', 'スペイン', 'ロシア', '米国', 'カナダ', 'オーストラリア'];
 
-// Google Sheets에서 데이터 가져오기
+const quarterlyTrendData = [
+  { key: '2019-Q1', label: '19/1-3', total: 11517, perCapita: 14.7 },
+  { key: '2019-Q4', label: '19/10-12', total: 12128, perCapita: 16.3 },
+  { key: '2023-Q1', label: '23/1-3', total: 12319, perCapita: 20.9 },
+  { key: '2023-Q4', label: '23/10-12', total: 17700, perCapita: 21.1 },
+  { key: '2024-Q1', label: '24/1-3', total: 17707, perCapita: 20.9 },
+  { key: '2024-Q2', label: '24/4-6', total: 21402, perCapita: 23.2 },
+  { key: '2024-Q3', label: '24/7-9', total: 19186, perCapita: 21.0 },
+  { key: '2024-Q4', label: '24/10-12', total: 22969, perCapita: 22.3 },
+  { key: '2025-Q1', label: '25/1-3', total: 22803, perCapita: 22.8 },
+  { key: '2025-Q2', label: '25/4-6', total: 25043, perCapita: 23.7 },
+  { key: '2025-Q3', label: '25/7-9', total: 21384, perCapita: 21.4 },
+  { key: '2025-Q4', label: '25/10-12', total: 25330, perCapita: 23.4 },
+];
+
 async function fetchSheetData(sheetName) {
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}?key=${API_KEY}`;
   try {
     const response = await fetch(url);
+    if (!response.ok) return [];
     const data = await response.json();
     return data.values || [];
-  } catch (error) {
-    console.error(`Error fetching ${sheetName}:`, error);
-    return [];
-  }
+  } catch (error) { return []; }
 }
 
-// 図表3 데이터 파싱 (費目別消費額)
 function parse図表3(data) {
   if (!data || data.length < 5) return [];
-  
   const results = [];
   for (let i = 4; i < data.length; i++) {
     const row = data[i];
     if (!row || !row[0] || row[0] === 'クルーズ客（再掲）') continue;
-    
-    // 前年同期比 파싱 (예: "+28.8%" → 28.8)
-    let yoyChange = null;
-    if (row[1]) {
-      const match = String(row[1]).match(/([+-]?\d+\.?\d*)/);
-      if (match) yoyChange = parseFloat(match[1]);
-    }
-    
+    const country = row[0];
+    if (!COUNTRIES.includes(country) && country !== '全国籍・地域' && country !== 'その他') continue;
     results.push({
-      country: row[0],
-      total: parseFloat(String(row[1]).replace(/[^0-9.-]/g, '')) || 0,
-      yoyChange: yoyChange,
-      accommodation: parseFloat(row[2]) || 0,
-      food: parseFloat(row[3]) || 0,
-      transportation: parseFloat(row[4]) || 0,
-      entertainment: parseFloat(row[5]) || 0,
-      shopping: parseFloat(row[6]) || 0,
-      other: parseFloat(row[7]) || 0
+      country, total: parseFloat(String(row[1]).replace(/,/g, '')) || 0,
+      accommodation: parseFloat(String(row[2]).replace(/,/g, '')) || 0,
+      food: parseFloat(String(row[3]).replace(/,/g, '')) || 0,
+      transport: parseFloat(String(row[4]).replace(/,/g, '')) || 0,
+      entertainment: parseFloat(String(row[5]).replace(/,/g, '')) || 0,
+      shopping: parseFloat(String(row[6]).replace(/,/g, '')) || 0,
+      other: parseFloat(String(row[7]).replace(/,/g, '')) || 0
     });
   }
   return results;
 }
 
-// 図表4 데이터 파싱 (訪日客数・客単価)
 function parse図表4(data) {
   if (!data || data.length < 5) return [];
-  
   const results = [];
   for (let i = 4; i < data.length; i++) {
     const row = data[i];
-    if (!row || !row[0] || row[0] === 'クルーズ客' || row[0] === '全体') continue;
-    
+    if (!row || !row[0]) continue;
+    const country = row[0];
+    if (!COUNTRIES.includes(country) && country !== '全国籍・地域' && country !== 'その他') continue;
     results.push({
-      country: row[0],
-      perCapita: parseFloat(String(row[1]).replace(/,/g, '')) || 0,
+      country, perCapita: parseFloat(String(row[1]).replace(/,/g, '')) || 0,
       visitors: parseFloat(String(row[2]).replace(/,/g, '')) || 0,
-      totalSpending: parseFloat(String(row[3]).replace(/,/g, '')) || 0,
-      avgNights: parseFloat(row[4]) || 0
+      avgNights: parseFloat(String(row[4]).replace(/,/g, '')) || 0
     });
   }
   return results;
 }
 
-// 영업팀 品目別 데이터 파싱
-function parseSalesData(data) {
-  if (!data || data.length < 28) return null;
-  
-  // 시트 구조에 따른 데이터 추출
-  // 행 5: 宿泊費, 행 6: 飲食費, 행 7: 交通費, 행 8: 娯楽等サービス費, 행 9: 買物代
-  // 행 11~27: 品目別 (菓子類, 酒類, 化粧品...)
-  
-  const categories = {
-    accommodation: data[4] ? parseFloat(data[4][2]) || 0 : 0,
-    food: data[5] ? parseFloat(data[5][2]) || 0 : 0,
-    transportation: data[6] ? parseFloat(data[6][2]) || 0 : 0,
-    entertainment: data[7] ? parseFloat(data[7][2]) || 0 : 0,
-    shopping: data[8] ? parseFloat(data[8][2]) || 0 : 0,
-  };
-  
-  // 品目別 데이터 (행 11~27)
+function parseSalesSheet(data) {
+  if (!data || data.length < 5) return null;
   const products = [];
-  const productNames = [
-    '菓子類', '酒類', '生鮮農産物', 'その他食料品・飲料・たばこ',
-    '化粧品・香水', '医薬品', '健康グッズ・トイレタリー',
-    '衣類', '靴・かばん・革製品', '電気製品', 'カメラ・ビデオカメラ・時計',
-    '宝石・貴金属', '民芸品・伝統工芸品', '書籍・絵葉書・CD・DVD',
-    'その他買物代', 'マンガ・アニメ関連', 'その他娯楽サービス費'
-  ];
-  
-  for (let i = 10; i < Math.min(28, data.length); i++) {
-    if (data[i] && data[i][0]) {
-      products.push({
-        name: data[i][0],
-        value2023: parseFloat(data[i][1]) || 0,
-        value2024: parseFloat(data[i][2]) || 0
-      });
-    }
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row || !row[0]) continue;
+    products.push({
+      name: row[0],
+      y2024: parseFloat(String(row[1]).replace(/,/g, '')) || 0,
+      y2025: parseFloat(String(row[2]).replace(/,/g, '')) || 0,
+      yoy: parseFloat(String(row[3]).replace(/[^0-9.-]/g, '')) || 0
+    });
   }
-  
-  return { categories, products };
+  return products;
 }
 
 export default function InboundDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedYear, setSelectedYear] = useState('2025');
-  const [selectedQuarter, setSelectedQuarter] = useState('Q4');
-  const [activeTab, setActiveTab] = useState('overview');
-  const [selectedCountry, setSelectedCountry] = useState('韓国');
-  
-  // 데이터 상태
+  const [selectedQuarter, setSelectedQuarter] = useState('2025-Q4');
+  const [selectedCountry, setSelectedCountry] = useState(null);
+  const [viewMode, setViewMode] = useState('ranking');
+  const [sortBy, setSortBy] = useState('total');
   const [spendingData, setSpendingData] = useState([]);
   const [visitorData, setVisitorData] = useState([]);
-  const [salesData, setSalesData] = useState(null);
-  const [prevYearData, setPrevYearData] = useState([]);
-  
-  // 시트명 생성
-  const sheetName = `${selectedYear}_${selectedQuarter}`;
-  const prevYearSheetName = `${parseInt(selectedYear) - 1}_${selectedQuarter}`;
-  
-  // 데이터 로드
+  const [prevSpendingData, setPrevSpendingData] = useState([]);
+  const [prevVisitorData, setPrevVisitorData] = useState([]);
+  const [salesData, setSalesData] = useState({});
+
+  const [currentYear, currentQ] = selectedQuarter.split('-');
+  const prevYear = parseInt(currentYear) - 1;
+
+  const quarterOptions = [
+    { value: '2025-Q4', label: '2025年 Q4（10-12月）' },
+    { value: '2025-Q3', label: '2025年 Q3（7-9月）' },
+    { value: '2025-Q2', label: '2025年 Q2（4-6月）' },
+    { value: '2025-Q1', label: '2025年 Q1（1-3月）' },
+    { value: '2024-Q4', label: '2024年 Q4（10-12月）' },
+    { value: '2024-Q3', label: '2024年 Q3（7-9月）' },
+    { value: '2024-Q2', label: '2024年 Q2（4-6月）' },
+    { value: '2024-Q1', label: '2024年 Q1（1-3月）' },
+  ];
+
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       setError(null);
-      
       try {
-        // 현재 분기 데이터
+        const sheetPrefix = `${currentYear}_${currentQ}`;
+        const prevSheetPrefix = `${prevYear}_${currentQ}`;
         const [spending, visitors] = await Promise.all([
-          fetchSheetData(`${sheetName}_図表3`),
-          fetchSheetData(`${sheetName}_図表4`)
+          fetchSheetData(`${sheetPrefix}_図表3`),
+          fetchSheetData(`${sheetPrefix}_図表4`)
         ]);
-        
         const parsedSpending = parse図表3(spending);
         const parsedVisitors = parse図表4(visitors);
-        
         if (parsedSpending.length === 0 && parsedVisitors.length === 0) {
-          setError(`${sheetName}のデータが見つかりません。`);
+          setError(`${sheetPrefix}のデータが見つかりません`);
+        } else {
+          setSpendingData(parsedSpending);
+          setVisitorData(parsedVisitors);
         }
-        
-        setSpendingData(parsedSpending);
-        setVisitorData(parsedVisitors);
-        
-        // 전년 동기 데이터 (비교용)
-        if (parseInt(selectedYear) > 2024) {
-          const prevSpending = await fetchSheetData(`${prevYearSheetName}_図表3`);
-          setPrevYearData(parse図表3(prevSpending));
-        }
-        
+        const [prevSpending, prevVisitors] = await Promise.all([
+          fetchSheetData(`${prevSheetPrefix}_図表3`),
+          fetchSheetData(`${prevSheetPrefix}_図表4`)
+        ]);
+        setPrevSpendingData(parse図表3(prevSpending));
+        setPrevVisitorData(parse図表4(prevVisitors));
       } catch (err) {
         setError('データの読み込みに失敗しました: ' + err.message);
       }
-      
       setLoading(false);
     }
-    
     loadData();
-  }, [sheetName]);
-  
-  // 영업팀 데이터 로드
+  }, [selectedQuarter]);
+
   useEffect(() => {
     async function loadSalesData() {
-      if (activeTab === 'sales' && SALES_COUNTRIES.includes(selectedCountry)) {
+      if (selectedCountry && !salesData[selectedCountry]) {
         const data = await fetchSheetData(`営業_${selectedCountry}`);
-        const parsed = parseSalesData(data);
-        setSalesData(parsed);
+        const parsed = parseSalesSheet(data);
+        if (parsed) setSalesData(prev => ({ ...prev, [selectedCountry]: parsed }));
       }
     }
     loadSalesData();
-  }, [activeTab, selectedCountry]);
-  
-  // 전체 통계 계산
-  const totalStats = React.useMemo(() => {
-    const allCountry = spendingData.find(d => d.country === '全国籍・地域');
-    const allVisitor = visitorData.find(d => d.country === '全国籍・地域');
-    
-    if (!allCountry || !allVisitor) return null;
-    
-    // 전년 동기 데이터
-    const prevAll = prevYearData.find(d => d.country === '全国籍・地域');
-    
-    return {
-      totalSpending: allCountry.total,
-      totalVisitors: allVisitor.visitors,
-      perCapita: allVisitor.perCapita,
-      shoppingRatio: ((allCountry.shopping / allCountry.total) * 100).toFixed(1),
-      avgNights: allVisitor.avgNights,
-      yoySpending: prevAll ? (((allCountry.total - prevAll.total) / prevAll.total) * 100).toFixed(1) : null,
-      yoyVisitors: allCountry.yoyChange
-    };
-  }, [spendingData, visitorData, prevYearData]);
-  
-  // 국가별 랭킹 (전체 제외, 상위 10개)
-  const countryRanking = React.useMemo(() => {
+  }, [selectedCountry]);
+
+  const enrichedData = useMemo(() => {
     return spendingData
       .filter(d => d.country !== '全国籍・地域' && d.country !== 'その他')
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10);
-  }, [spendingData]);
-  
-  // 費目別 구성 데이터
-  const categoryData = React.useMemo(() => {
-    const all = spendingData.find(d => d.country === '全国籍・地域');
-    if (!all) return [];
-    
-    return [
-      { name: '宿泊費', value: all.accommodation, color: '#0066cc' },
-      { name: '飲食費', value: all.food, color: '#00a0e9' },
-      { name: '交通費', value: all.transportation, color: '#5fd3f3' },
-      { name: '娯楽等サービス費', value: all.entertainment, color: '#ffa94d' },
-      { name: '買物代', value: all.shopping, color: '#ff6b6b' },
-      { name: 'その他', value: all.other, color: '#999999' }
-    ].filter(d => d.value > 0);
-  }, [spendingData]);
+      .map(spending => {
+        const visitor = visitorData.find(v => v.country === spending.country) || {};
+        const prevSpending = prevSpendingData.find(p => p.country === spending.country);
+        const visitors = visitor.visitors || 0;
+        const perCapita = visitor.perCapita || 0;
+        const avgNights = visitor.avgNights || 0;
+        const perNight = avgNights > 0 ? Math.round(perCapita / avgNights) : 0;
+        const shoppingRatio = spending.total > 0 ? (spending.shopping / spending.total * 100) : 0;
+        const yoyGrowth = prevSpending && prevSpending.total > 0 
+          ? ((spending.total - prevSpending.total) / prevSpending.total * 100) : 0;
+        return { ...spending, visitors, perCapita, avgNights, perNight, shoppingRatio, yoyGrowth, prev: prevSpending };
+      });
+  }, [spendingData, visitorData, prevSpendingData, prevVisitorData]);
 
-  // 분기 선택 옵션
-  const years = ['2024', '2025'];
-  const quarters = [
-    { value: 'Q1', label: 'Q1 (1-3月)' },
-    { value: 'Q2', label: 'Q2 (4-6月)' },
-    { value: 'Q3', label: 'Q3 (7-9月)' },
-    { value: 'Q4', label: 'Q4 (10-12月)' }
-  ];
+  const sortedData = useMemo(() => {
+    return [...enrichedData].sort((a, b) => {
+      if (sortBy === 'total') return b.total - a.total;
+      if (sortBy === 'perCapita') return b.perCapita - a.perCapita;
+      if (sortBy === 'growth') return b.yoyGrowth - a.yoyGrowth;
+      return 0;
+    });
+  }, [enrichedData, sortBy]);
 
-  // 伸び率 포맷
-  const formatYoY = (value) => {
-    if (value === null || value === undefined) return '-';
-    const num = parseFloat(value);
-    if (isNaN(num)) return '-';
-    const sign = num >= 0 ? '+' : '';
-    return `${sign}${num.toFixed(1)}%`;
-  };
+  const totals = useMemo(() => {
+    const allSpending = spendingData.find(d => d.country === '全国籍・地域');
+    const allVisitor = visitorData.find(d => d.country === '全国籍・地域');
+    const prevAllSpending = prevSpendingData.find(d => d.country === '全国籍・地域');
+    if (!allSpending || !allVisitor) return null;
+    const yoyGrowth = prevAllSpending && prevAllSpending.total > 0
+      ? ((allSpending.total - prevAllSpending.total) / prevAllSpending.total * 100) : 0;
+    return {
+      total: allSpending.total, visitors: allVisitor.visitors, perCapita: allVisitor.perCapita,
+      shopping: allSpending.shopping, shoppingRatio: allSpending.total > 0 ? (allSpending.shopping / allSpending.total * 100) : 0,
+      yoyGrowth
+    };
+  }, [spendingData, visitorData, prevSpendingData]);
 
-  // 伸び率 색상
-  const getYoYColor = (value) => {
-    if (value === null || value === undefined) return 'text-gray-500';
-    const num = parseFloat(value);
-    if (isNaN(num)) return 'text-gray-500';
-    return num >= 0 ? 'text-red-500' : 'text-blue-500';
-  };
+  const matrixData = useMemo(() => {
+    if (enrichedData.length === 0) return [];
+    const avgPerCapita = enrichedData.reduce((s, d) => s + d.perCapita, 0) / enrichedData.length;
+    const avgGrowth = enrichedData.reduce((s, d) => s + d.yoyGrowth, 0) / enrichedData.length;
+    return enrichedData.map(d => ({
+      ...d,
+      quadrant: d.perCapita >= avgPerCapita 
+        ? (d.yoyGrowth >= avgGrowth ? 'star' : 'cashCow')
+        : (d.yoyGrowth >= avgGrowth ? 'questionMark' : 'dog'),
+      avgPerCapita, avgGrowth
+    }));
+  }, [enrichedData]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">データを読み込み中...</p>
+      <div style={{ minHeight: '100vh', background: COLORS.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: '48px', height: '48px', border: `3px solid ${COLORS.border}`, borderTopColor: COLORS.accent, borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+          <p style={{ color: COLORS.textMuted }}>データを読み込み中...</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       </div>
     );
@@ -265,328 +229,331 @@ export default function InboundDashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md">
-          <div className="text-red-500 text-5xl mb-4">⚠️</div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">エラー</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            再読み込み
-          </button>
+      <div style={{ minHeight: '100vh', background: COLORS.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ background: '#fff', padding: '32px', borderRadius: '12px', textAlign: 'center', maxWidth: '400px', border: `1px solid ${COLORS.border}` }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>エラー</h2>
+          <p style={{ color: COLORS.textMuted, marginBottom: '16px' }}>{error}</p>
+          <button onClick={() => window.location.reload()} style={{ background: COLORS.accent, color: '#fff', padding: '10px 24px', borderRadius: '8px', border: 'none', fontWeight: 600, cursor: 'pointer' }}>再読み込み</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">インバウンド消費統計ダッシュボード</h1>
-              <p className="text-sm text-gray-500">訪日外国人旅行消費額データ（観光庁）</p>
-            </div>
-            <div className="flex gap-2">
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {years.map(y => (
-                  <option key={y} value={y}>{y}年</option>
-                ))}
-              </select>
-              <select
-                value={selectedQuarter}
-                onChange={(e) => setSelectedQuarter(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {quarters.map(q => (
-                  <option key={q.value} value={q.value}>{q.label}</option>
-                ))}
-              </select>
-            </div>
+    <div style={{ minHeight: '100vh', background: COLORS.bg, fontFamily: '"Noto Sans JP", -apple-system, sans-serif' }}>
+      <div style={{ background: COLORS.bg, borderBottom: `1px solid ${COLORS.border}`, padding: '32px 0' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+            <span style={{ background: COLORS.accent, color: '#fff', padding: '4px 12px', borderRadius: '4px', fontSize: '12px', fontWeight: 600 }}>INBOUND</span>
+            <span style={{ color: COLORS.textMuted, fontSize: '14px' }}>旅行消費額</span>
+          </div>
+          <h1 style={{ fontSize: '28px', fontWeight: 700, margin: 0 }}>訪日外国人 旅行消費額ダッシュボード</h1>
+          <p style={{ color: COLORS.textMuted, marginTop: '8px', fontSize: '14px' }}>観光庁「インバウンド消費動向調査」| {currentYear}年 {currentQ}</p>
+        </div>
+      </div>
+
+      <div style={{ background: COLORS.bgSection, borderBottom: `1px solid ${COLORS.border}`, padding: '16px 0', position: 'sticky', top: 0, zIndex: 100 }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px', display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ color: COLORS.textMuted, fontSize: '13px', fontWeight: 500 }}>期間</span>
+            <select value={selectedQuarter} onChange={(e) => { setSelectedQuarter(e.target.value); setSelectedCountry(null); }}
+              style={{ padding: '8px 16px', borderRadius: '6px', border: `1px solid ${COLORS.border}`, background: '#fff', fontSize: '14px', fontWeight: 500 }}>
+              {quarterOptions.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {[{ key: 'ranking', label: '国家別' }, { key: 'matrix', label: 'マトリクス' }, { key: 'breakdown', label: '費目構成' }].map(({ key, label }) => (
+              <button key={key} onClick={() => setViewMode(key)}
+                style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 500, cursor: 'pointer',
+                  border: viewMode === key ? 'none' : `1px solid ${COLORS.border}`,
+                  background: viewMode === key ? COLORS.accent : '#fff',
+                  color: viewMode === key ? '#fff' : COLORS.textMuted }}>{label}</button>
+            ))}
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* KPI 카드 */}
-        {totalStats && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <div className="bg-white rounded-xl shadow-sm p-4 border-l-4 border-blue-600">
-              <p className="text-xs text-gray-500 mb-1">総消費額</p>
-              <p className="text-2xl font-bold text-gray-900">{(totalStats.totalSpending / 10000).toFixed(2)}兆円</p>
-              {totalStats.yoySpending && (
-                <p className={`text-sm ${getYoYColor(totalStats.yoySpending)}`}>
-                  前年同期比 {formatYoY(totalStats.yoySpending)}
-                </p>
-              )}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px' }}>
+        {totals && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+            <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', border: `1px solid ${COLORS.border}` }}>
+              <div style={{ color: COLORS.textMuted, fontSize: '12px', marginBottom: '4px' }}>総消費額</div>
+              <div style={{ fontSize: '28px', fontWeight: 700, color: COLORS.accent }}>{(totals.total / 10000).toFixed(2)}<span style={{ fontSize: '14px', fontWeight: 400, color: COLORS.textMuted }}> 兆円</span></div>
+              <div style={{ fontSize: '12px', color: totals.yoyGrowth >= 0 ? COLORS.positive : COLORS.negative, fontWeight: 600, marginTop: '4px' }}>前年同期比 {totals.yoyGrowth >= 0 ? '+' : ''}{totals.yoyGrowth.toFixed(1)}%</div>
             </div>
-            <div className="bg-white rounded-xl shadow-sm p-4 border-l-4 border-green-500">
-              <p className="text-xs text-gray-500 mb-1">訪日客数</p>
-              <p className="text-2xl font-bold text-gray-900">{(totalStats.totalVisitors / 10000).toFixed(0)}万人</p>
+            <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', border: `1px solid ${COLORS.border}` }}>
+              <div style={{ color: COLORS.textMuted, fontSize: '12px', marginBottom: '4px' }}>訪日客数</div>
+              <div style={{ fontSize: '28px', fontWeight: 700 }}>{(totals.visitors / 10000).toFixed(1)}<span style={{ fontSize: '14px', fontWeight: 400, color: COLORS.textMuted }}> 万人</span></div>
             </div>
-            <div className="bg-white rounded-xl shadow-sm p-4 border-l-4 border-purple-500">
-              <p className="text-xs text-gray-500 mb-1">1人当たり支出</p>
-              <p className="text-2xl font-bold text-gray-900">{(totalStats.perCapita / 10000).toFixed(1)}万円</p>
+            <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', border: `1px solid ${COLORS.border}` }}>
+              <div style={{ color: COLORS.textMuted, fontSize: '12px', marginBottom: '4px' }}>1人当たり支出</div>
+              <div style={{ fontSize: '28px', fontWeight: 700 }}>{(totals.perCapita / 10000).toFixed(1)}<span style={{ fontSize: '14px', fontWeight: 400, color: COLORS.textMuted }}> 万円</span></div>
             </div>
-            <div className="bg-white rounded-xl shadow-sm p-4 border-l-4 border-orange-500">
-              <p className="text-xs text-gray-500 mb-1">買物代比率</p>
-              <p className="text-2xl font-bold text-gray-900">{totalStats.shoppingRatio}%</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm p-4 border-l-4 border-pink-500">
-              <p className="text-xs text-gray-500 mb-1">平均泊数</p>
-              <p className="text-2xl font-bold text-gray-900">{totalStats.avgNights}泊</p>
+            <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', border: `1px solid ${COLORS.border}` }}>
+              <div style={{ color: COLORS.textMuted, fontSize: '12px', marginBottom: '4px' }}>買物代比率</div>
+              <div style={{ fontSize: '28px', fontWeight: 700 }}>{totals.shoppingRatio.toFixed(1)}<span style={{ fontSize: '14px', fontWeight: 400, color: COLORS.textMuted }}> %</span></div>
             </div>
           </div>
         )}
 
-        {/* 탭 네비게이션 */}
-        <div className="flex gap-2 mb-6 border-b overflow-x-auto">
-          {[
-            { id: 'overview', label: '概要' },
-            { id: 'ranking', label: '国別ランキング' },
-            { id: 'category', label: '費目構成' },
-            { id: 'detail', label: '国別詳細' },
-            { id: 'sales', label: '品目別詳細' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 font-medium whitespace-nowrap transition-colors ${
-                activeTab === tab.id
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', border: `1px solid ${COLORS.border}`, marginBottom: '32px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>四半期の旅行消費額・1人当たり旅行支出の推移</h3>
+          <p style={{ fontSize: '12px', color: COLORS.textMuted, marginBottom: '20px' }}>棒グラフ：消費額（億円）/ 折れ線：1人当たり支出（万円）</p>
+          <ResponsiveContainer width="100%" height={320}>
+            <ComposedChart data={quarterlyTrendData} margin={{ top: 20, right: 60, bottom: 20, left: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+              <XAxis dataKey="label" tick={{ fontSize: 10, fill: COLORS.textMuted }} />
+              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: COLORS.textMuted }} tickFormatter={(v) => v.toLocaleString()} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: COLORS.textMuted }} domain={[10, 30]} />
+              <Tooltip formatter={(value, name) => name === '消費額' ? [`${value.toLocaleString()}億円`, name] : [`${value.toFixed(1)}万円`, name]} />
+              <Legend />
+              <Bar yAxisId="left" dataKey="total" name="消費額" radius={[4, 4, 0, 0]}>
+                {quarterlyTrendData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.key === selectedQuarter ? COLORS.accent : '#c7d2e8'} />)}
+              </Bar>
+            </ComposedChart>
+          </ResponsiveContainer>
         </div>
 
-        {/* 탭 컨텐츠 */}
-        {activeTab === 'overview' && (
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* 국가별 소비액 차트 */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">国別消費額 Top 10</h3>
-              <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={countryRanking} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" tickFormatter={(v) => `${v}億`} />
+        {viewMode === 'ranking' && (
+          <section style={{ marginBottom: '48px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>国籍・地域別 消費データ</h2>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[{ key: 'total', label: '総額順' }, { key: 'perCapita', label: '客単価順' }, { key: 'growth', label: '成長率順' }].map(({ key, label }) => (
+                  <button key={key} onClick={() => setSortBy(key)}
+                    style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                      border: `1px solid ${sortBy === key ? COLORS.accent : COLORS.border}`,
+                      background: sortBy === key ? COLORS.accentLight : '#fff',
+                      color: sortBy === key ? COLORS.accent : COLORS.textMuted }}>{label}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {sortedData.map((d, i) => (
+                <div key={d.country}>
+                  <div onClick={() => setSelectedCountry(selectedCountry === d.country ? null : d.country)}
+                    style={{ background: '#fff', borderRadius: selectedCountry === d.country ? '12px 12px 0 0' : '12px',
+                      border: `1px solid ${selectedCountry === d.country ? COLORS.accent : COLORS.border}`,
+                      borderBottom: selectedCountry === d.country ? 'none' : `1px solid ${COLORS.border}`,
+                      padding: '16px 20px', cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: i < 3 ? COLORS.accent : COLORS.bgSection,
+                        color: i < 3 ? '#fff' : COLORS.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '14px', fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: '16px', marginBottom: '6px' }}>{d.country}</div>
+                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '13px' }}>
+                          <span style={{ color: COLORS.textMuted }}>消費額 <strong style={{ color: COLORS.text }}>{d.total.toLocaleString()}億円</strong></span>
+                          <span style={{ color: COLORS.textMuted }}>客単価 <strong style={{ color: COLORS.accent }}>¥{d.perCapita.toLocaleString()}</strong></span>
+                          <span style={{ color: COLORS.textMuted }}>訪日客数 <strong style={{ color: COLORS.text }}>{d.visitors.toFixed(1)}万人</strong></span>
+                          <span style={{ color: d.yoyGrowth >= 0 ? COLORS.positive : COLORS.negative, fontWeight: 600 }}>YoY {d.yoyGrowth >= 0 ? '+' : ''}{d.yoyGrowth.toFixed(1)}%</span>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '6px',
+                        background: selectedCountry === d.country ? COLORS.accent : COLORS.bgSection,
+                        color: selectedCountry === d.country ? '#fff' : COLORS.accent, fontSize: '13px', fontWeight: 500 }}>
+                        {selectedCountry === d.country ? '閉じる' : '詳細'}
+                        <span style={{ transform: selectedCountry === d.country ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
+                      </div>
+                    </div>
+                  </div>
+                  {selectedCountry === d.country && (
+                    <div style={{ background: '#fff', borderRadius: '0 0 12px 12px', border: `1px solid ${COLORS.accent}`, borderTop: `1px dashed ${COLORS.border}`, padding: '24px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+                        <div>
+                          <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', color: COLORS.textMuted }}>📊 費目別消費額（億円）</h4>
+                          <ResponsiveContainer width="100%" height={220}>
+                            <BarChart data={[
+                              { name: '宿泊費', current: d.accommodation, prev: d.prev?.accommodation || 0 },
+                              { name: '飲食費', current: d.food, prev: d.prev?.food || 0 },
+                              { name: '交通費', current: d.transport, prev: d.prev?.transport || 0 },
+                              { name: '娯楽等', current: d.entertainment, prev: d.prev?.entertainment || 0 },
+                              { name: '買物代', current: d.shopping, prev: d.prev?.shopping || 0 },
+                            ]} barGap={2}>
+                              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                              <XAxis dataKey="name" tick={{ fontSize: 11, fill: COLORS.textMuted }} />
+                              <YAxis tick={{ fontSize: 11, fill: COLORS.textMuted }} />
+                              <Tooltip formatter={(v) => [`${v.toLocaleString()}億円`]} />
+                              <Bar dataKey="prev" fill={COLORS.border} name={`${prevYear}年`} radius={[2, 2, 0, 0]} />
+                              <Bar dataKey="current" fill={COLORS.accent} name={`${currentYear}年`} radius={[2, 2, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div>
+                          <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', color: COLORS.textMuted }}>📈 主要指標</h4>
+                          <div style={{ display: 'grid', gap: '12px' }}>
+                            {[{ label: '1人当たり支出', value: `¥${d.perCapita.toLocaleString()}` },
+                              { label: '1泊当たり支出', value: `¥${d.perNight.toLocaleString()}` },
+                              { label: '平均泊数', value: `${d.avgNights}泊` },
+                              { label: '買物代比率', value: `${d.shoppingRatio.toFixed(1)}%` }
+                            ].map(({ label, value }) => (
+                              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: COLORS.bgSection, borderRadius: '8px' }}>
+                                <span style={{ fontSize: '12px', color: COLORS.textMuted }}>{label}</span>
+                                <span style={{ fontSize: '18px', fontWeight: 700 }}>{value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ marginTop: '24px' }}>
+                        <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: COLORS.textMuted }}>📋 前年同期比較</h4>
+                        <div style={{ overflowX: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                            <thead>
+                              <tr style={{ background: COLORS.bgSection }}>
+                                <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600 }}>費目</th>
+                                <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>{prevYear}年</th>
+                                <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>{currentYear}年</th>
+                                <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>増減</th>
+                                <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>前年比</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {[{ name: '宿泊費', curr: d.accommodation, prev: d.prev?.accommodation },
+                                { name: '飲食費', curr: d.food, prev: d.prev?.food },
+                                { name: '交通費', curr: d.transport, prev: d.prev?.transport },
+                                { name: '娯楽等', curr: d.entertainment, prev: d.prev?.entertainment },
+                                { name: '買物代', curr: d.shopping, prev: d.prev?.shopping },
+                                { name: '合計', curr: d.total, prev: d.prev?.total, isTotal: true },
+                              ].map(({ name, curr, prev, isTotal }) => {
+                                const diff = curr - (prev || 0);
+                                const pct = prev ? ((curr - prev) / prev * 100) : 0;
+                                return (
+                                  <tr key={name} style={{ borderTop: `1px solid ${COLORS.border}`, background: isTotal ? COLORS.accentLight : 'transparent', fontWeight: isTotal ? 600 : 400 }}>
+                                    <td style={{ padding: '10px 12px' }}>{name}</td>
+                                    <td style={{ padding: '10px 12px', textAlign: 'right', color: COLORS.textMuted }}>{(prev || 0).toLocaleString()}</td>
+                                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>{curr.toLocaleString()}</td>
+                                    <td style={{ padding: '10px 12px', textAlign: 'right', color: diff >= 0 ? COLORS.positive : COLORS.negative }}>{diff >= 0 ? '+' : ''}{diff.toLocaleString()}</td>
+                                    <td style={{ padding: '10px 12px', textAlign: 'right', color: pct >= 0 ? COLORS.positive : COLORS.negative }}>{pct >= 0 ? '+' : ''}{pct.toFixed(1)}%</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      {salesData[d.country] && (
+                        <div style={{ marginTop: '24px' }}>
+                          <details style={{ background: COLORS.bgSection, borderRadius: '8px', overflow: 'hidden' }}>
+                            <summary style={{ padding: '14px 16px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
+                              🛍️ 買物品目別 客単価（円）<span style={{ fontSize: '11px', fontWeight: 400, color: COLORS.textMuted, marginLeft: '8px' }}>クリックで展開</span>
+                            </summary>
+                            <div style={{ padding: '16px', borderTop: `1px solid ${COLORS.border}`, background: '#fff' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                <thead>
+                                  <tr style={{ background: COLORS.bgSection }}>
+                                    <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600 }}>品目</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>2024年</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>2025年</th>
+                                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>前年比</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {salesData[d.country].map((item, idx) => (
+                                    <tr key={idx} style={{ borderTop: `1px solid ${COLORS.border}` }}>
+                                      <td style={{ padding: '10px 12px' }}>{item.name}</td>
+                                      <td style={{ padding: '10px 12px', textAlign: 'right', color: COLORS.textMuted }}>¥{item.y2024.toLocaleString()}</td>
+                                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 500 }}>¥{item.y2025.toLocaleString()}</td>
+                                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: item.yoy >= 0 ? COLORS.positive : COLORS.negative }}>{item.yoy >= 0 ? '+' : ''}{item.yoy.toFixed(1)}%</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </details>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {viewMode === 'matrix' && (
+          <section style={{ marginBottom: '48px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>成長率 × 客単価 マトリクス</h2>
+            <p style={{ color: COLORS.textMuted, fontSize: '13px', marginBottom: '16px' }}>縦軸：前年同期比成長率 / 横軸：1人当たり支出額 / 円のサイズ：総消費額</p>
+            <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', border: `1px solid ${COLORS.border}` }}>
+              <ResponsiveContainer width="100%" height={520}>
+                <ScatterChart margin={{ top: 20, right: 40, bottom: 60, left: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                  <XAxis type="number" dataKey="perCapita" domain={['auto', 'auto']} tickFormatter={(v) => `¥${(v/10000).toFixed(0)}万`} tick={{ fontSize: 11, fill: COLORS.textMuted }}
+                    label={{ value: '1人当たり支出（円）', position: 'bottom', offset: 40, fontSize: 12, fill: COLORS.textMuted }} />
+                  <YAxis type="number" dataKey="yoyGrowth" domain={['auto', 'auto']} tickFormatter={(v) => `${v.toFixed(0)}%`} tick={{ fontSize: 11, fill: COLORS.textMuted }}
+                    label={{ value: 'YoY成長率（%）', angle: -90, position: 'insideLeft', offset: 10, fontSize: 12, fill: COLORS.textMuted }} />
+                  {matrixData.length > 0 && (
+                    <>
+                      <ReferenceLine x={matrixData[0]?.avgPerCapita} stroke="#d1d5db" strokeDasharray="5 5" />
+                      <ReferenceLine y={matrixData[0]?.avgGrowth} stroke="#d1d5db" strokeDasharray="5 5" />
+                    </>
+                  )}
+                  <Tooltip content={({ payload }) => {
+                    if (!payload || !payload[0]) return null;
+                    const d = payload[0].payload;
+                    return (
+                      <div style={{ background: '#fff', padding: '12px', borderRadius: '8px', border: `1px solid ${COLORS.border}`, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                        <div style={{ fontWeight: 700, marginBottom: '8px', fontSize: '14px' }}>{d.country}</div>
+                        <div style={{ fontSize: '12px', color: COLORS.textMuted, marginBottom: '4px' }}>消費額: <strong style={{ color: COLORS.text }}>{d.total.toLocaleString()}億円</strong></div>
+                        <div style={{ fontSize: '12px', color: COLORS.textMuted, marginBottom: '4px' }}>客単価: <strong style={{ color: COLORS.accent }}>¥{d.perCapita.toLocaleString()}</strong></div>
+                        <div style={{ fontSize: '12px', color: COLORS.textMuted }}>成長率: <strong style={{ color: d.yoyGrowth >= 0 ? COLORS.positive : COLORS.negative }}>{d.yoyGrowth >= 0 ? '+' : ''}{d.yoyGrowth.toFixed(1)}%</strong></div>
+                      </div>
+                    );
+                  }} />
+                  <Scatter data={matrixData} style={{ cursor: 'pointer' }}>
+                    {matrixData.map((d) => (
+                      <Cell key={d.country} fill={d.quadrant === 'star' ? COLORS.positive : d.quadrant === 'questionMark' ? '#22c55e' : d.quadrant === 'cashCow' ? COLORS.accent : '#9ca3af'}
+                        r={Math.max(Math.sqrt(d.total) / 2.5, 6)} />
+                    ))}
+                    <LabelList dataKey="country" position="top" offset={8} style={{ fontSize: '10px', fontWeight: 500, fill: COLORS.text }} />
+                  </Scatter>
+                </ScatterChart>
+              </ResponsiveContainer>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '16px', fontSize: '12px', flexWrap: 'wrap' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '12px', height: '12px', borderRadius: '50%', background: COLORS.positive }} />高単価・高成長</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#22c55e' }} />成長市場</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '12px', height: '12px', borderRadius: '50%', background: COLORS.accent }} />安定市場</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#9ca3af' }} />様子見</span>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {viewMode === 'breakdown' && (
+          <section style={{ marginBottom: '48px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px' }}>費目別構成比（国籍・地域別）</h2>
+            <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', border: `1px solid ${COLORS.border}` }}>
+              <ResponsiveContainer width="100%" height={500}>
+                <BarChart data={sortedData.slice(0, 12)} layout="vertical" barSize={20}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                  <XAxis type="number" tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
                   <YAxis type="category" dataKey="country" width={100} tick={{ fontSize: 12 }} />
-                  <Tooltip 
-                    formatter={(v) => `${v.toLocaleString()}億円`}
-                    contentStyle={{ fontSize: 12 }}
-                  />
-                  <Bar dataKey="total" fill="#0066cc" radius={[0, 4, 4, 0]} />
+                  <Tooltip formatter={(v) => `${v.toFixed(1)}%`} />
+                  <Legend />
+                  <Bar dataKey={(d) => d.total > 0 ? (d.accommodation / d.total * 100) : 0} stackId="a" fill={COLORS.chart[0]} name="宿泊費" />
+                  <Bar dataKey={(d) => d.total > 0 ? (d.food / d.total * 100) : 0} stackId="a" fill={COLORS.chart[1]} name="飲食費" />
+                  <Bar dataKey={(d) => d.total > 0 ? (d.transport / d.total * 100) : 0} stackId="a" fill={COLORS.chart[2]} name="交通費" />
+                  <Bar dataKey={(d) => d.total > 0 ? (d.entertainment / d.total * 100) : 0} stackId="a" fill={COLORS.chart[3]} name="娯楽等" />
+                  <Bar dataKey={(d) => d.total > 0 ? (d.shopping / d.total * 100) : 0} stackId="a" fill={COLORS.chart[4]} name="買物代" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
+          </section>
+        )}
 
-            {/* 費目別 파이차트 */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">費目別構成比</h3>
-              <ResponsiveContainer width="100%" height={350}>
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={110}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
-                    labelLine={{ stroke: '#666', strokeWidth: 1 }}
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(v) => `${v.toLocaleString()}億円`} />
-                </PieChart>
-              </ResponsiveContainer>
+        <section>
+          <div style={{ background: COLORS.bgSection, borderRadius: '12px', padding: '24px', border: `1px solid ${COLORS.border}` }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>データについて</h3>
+            <div style={{ fontSize: '13px', color: COLORS.textMuted, lineHeight: 1.8 }}>
+              <p style={{ margin: '0 0 8px 0' }}><strong>出典</strong>：観光庁「インバウンド消費動向調査」</p>
+              <p style={{ margin: '0 0 8px 0' }}><strong>1人当たり支出</strong> = 総消費額 ÷ 訪日客数</p>
+              <p style={{ margin: '0 0 8px 0' }}><strong>マトリクス分類</strong>：平均客単価・平均成長率を基準に4象限に分類</p>
             </div>
           </div>
-        )}
-
-        {activeTab === 'ranking' && (
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">国別消費額ランキング</h3>
-            <div className="space-y-3">
-              {countryRanking.map((country, index) => {
-                const maxTotal = countryRanking[0]?.total || 1;
-                const percentage = (country.total / maxTotal) * 100;
-                
-                return (
-                  <div key={country.country} className="flex items-center gap-4">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                      index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-400' : 'bg-gray-300'
-                    }`}>
-                      {index + 1}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex justify-between mb-1">
-                        <span className="font-medium">{country.country}</span>
-                        <div className="flex items-center gap-3">
-                          <span className="text-gray-600">{country.total.toLocaleString()}億円</span>
-                          {country.yoyChange !== null && (
-                            <span className={`text-sm ${getYoYColor(country.yoyChange)}`}>
-                              {formatYoY(country.yoyChange)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-blue-600 rounded-full transition-all"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'category' && (
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">国別費目構成</h3>
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={countryRanking}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="country" tick={{ fontSize: 11 }} />
-                <YAxis tickFormatter={(v) => `${v}億`} />
-                <Tooltip formatter={(v) => `${v.toLocaleString()}億円`} />
-                <Legend />
-                <Bar dataKey="accommodation" name="宿泊費" stackId="a" fill="#0066cc" />
-                <Bar dataKey="food" name="飲食費" stackId="a" fill="#00a0e9" />
-                <Bar dataKey="transportation" name="交通費" stackId="a" fill="#5fd3f3" />
-                <Bar dataKey="entertainment" name="娯楽等" stackId="a" fill="#ffa94d" />
-                <Bar dataKey="shopping" name="買物代" stackId="a" fill="#ff6b6b" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {activeTab === 'detail' && (
-          <div className="bg-white rounded-xl shadow-sm p-6 overflow-x-auto">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">国別詳細データ</h3>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left p-3 font-medium">国籍・地域</th>
-                  <th className="text-right p-3 font-medium">消費額(億円)</th>
-                  <th className="text-right p-3 font-medium">伸び率</th>
-                  <th className="text-right p-3 font-medium">訪日客数</th>
-                  <th className="text-right p-3 font-medium">客単価(円)</th>
-                  <th className="text-right p-3 font-medium">平均泊数</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visitorData.filter(d => d.country !== '全国籍・地域').map((row) => {
-                  const spending = spendingData.find(s => s.country === row.country);
-                  return (
-                    <tr key={row.country} className="border-t hover:bg-gray-50">
-                      <td className="p-3 font-medium">{row.country}</td>
-                      <td className="p-3 text-right">{spending?.total?.toLocaleString() || '-'}</td>
-                      <td className={`p-3 text-right ${getYoYColor(spending?.yoyChange)}`}>
-                        {formatYoY(spending?.yoyChange)}
-                      </td>
-                      <td className="p-3 text-right">{row.visitors?.toLocaleString() || '-'}</td>
-                      <td className="p-3 text-right">{row.perCapita?.toLocaleString() || '-'}</td>
-                      <td className="p-3 text-right">{row.avgNights || '-'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {activeTab === 'sales' && (
-          <div className="space-y-6">
-            {/* 국가 선택 */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">品目別消費データ（営業用）</h3>
-              <div className="flex flex-wrap gap-2">
-                {SALES_COUNTRIES.map(country => (
-                  <button
-                    key={country}
-                    onClick={() => setSelectedCountry(country)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      selectedCountry === country
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {country}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 선택된 국가 데이터 */}
-            {salesData ? (
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* 費目別 */}
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <h4 className="font-bold text-gray-900 mb-4">{selectedCountry} - 費目別支出</h4>
-                  <div className="space-y-3">
-                    {Object.entries({
-                      '宿泊費': salesData.categories.accommodation,
-                      '飲食費': salesData.categories.food,
-                      '交通費': salesData.categories.transportation,
-                      '娯楽等サービス費': salesData.categories.entertainment,
-                      '買物代': salesData.categories.shopping
-                    }).map(([name, value]) => (
-                      <div key={name} className="flex justify-between items-center">
-                        <span className="text-gray-700">{name}</span>
-                        <span className="font-medium">{value.toLocaleString()}円</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 品目別 */}
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <h4 className="font-bold text-gray-900 mb-4">{selectedCountry} - 品目別買物代</h4>
-                  <div className="space-y-2 max-h-80 overflow-y-auto">
-                    {salesData.products.map((product, idx) => (
-                      <div key={idx} className="flex justify-between items-center py-1 border-b border-gray-100">
-                        <span className="text-sm text-gray-700">{product.name}</span>
-                        <div className="flex gap-4 text-sm">
-                          <span className="text-gray-500">2023: {product.value2023.toLocaleString()}円</span>
-                          <span className="font-medium">2024: {product.value2024.toLocaleString()}円</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-500">
-                「営業_{selectedCountry}」シートからデータを読み込み中...
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-
-      {/* 푸터 */}
-      <footer className="bg-white border-t mt-8 py-4">
-        <div className="max-w-7xl mx-auto px-4 text-center text-sm text-gray-500">
-          データ出典: 観光庁「インバウンド消費動向調査」 | {selectedYear}年{selectedQuarter}
-        </div>
-      </footer>
+        </section>
+      </div>
     </div>
   );
 }
