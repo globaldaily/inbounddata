@@ -51,24 +51,25 @@ const REGION_COLORS = {
 // 📊 트렌드 데이터 (하드코딩)
 // 새 분기 데이터 추가 시 여기에 1줄 추가하세요!
 // 형식: { label: 'YY/Q#', total: 소비액(억엔), perPerson: 객단가(만엔) }
+// 출처: 観光庁「訪日外国人消費動向調査」
 // ============================================================
 const TREND_DATA = [
-  // 2023년 (観光庁 PDF에서 추출)
+  // 2023年 (観光庁 確報値)
   { label: '23/Q1', total: 10103, perPerson: 21.1 },
   { label: '23/Q2', total: 12319, perPerson: 20.9 },
   { label: '23/Q3', total: 13801, perPerson: 20.9 },
   { label: '23/Q4', total: 16831, perPerson: 22.0 },
-  // 2024년
-  { label: '24/Q1', total: 17505, perPerson: 20.9 },
-  { label: '24/Q2', total: 18471, perPerson: 23.3 },
-  { label: '24/Q3', total: 19023, perPerson: 21.9 },
-  { label: '24/Q4', total: 22969, perPerson: 22.8 },
-  // 2025년 - 새 분기 발표 시 아래에 추가
-  { label: '25/Q1', total: 20912, perPerson: 22.8 },
-  { label: '25/Q2', total: 21638, perPerson: 23.3 },
-  { label: '25/Q3', total: 21158, perPerson: 23.4 },
-  { label: '25/Q4', total: 24685, perPerson: 23.7 },
-  // ↓ 2026년 Q1 발표 시 여기에 추가 ↓
+  // 2024年 (観光庁 確報値)
+  { label: '24/Q1', total: 17700, perPerson: 21.1 },
+  { label: '24/Q2', total: 21402, perPerson: 23.9 },
+  { label: '24/Q3', total: 19186, perPerson: 22.0 },
+  { label: '24/Q4', total: 22969, perPerson: 23.6 },
+  // 2025年 (観光庁 確報値) - 新しい四半期発表時は以下に追加
+  { label: '25/Q1', total: 22803, perPerson: 22.3 },
+  { label: '25/Q2', total: 25043, perPerson: 23.7 },
+  { label: '25/Q3', total: 21384, perPerson: 22.0 },
+  { label: '25/Q4', total: 25330, perPerson: 23.4 },
+  // ↓ 2026年 Q1 発表時はここに追加 ↓
 ];
 
 const parseNumber = (str) => {
@@ -410,45 +411,95 @@ const TrendChart = ({ data, year, quarter, onSelect }) => {
 
   const currentLabel = `${year.slice(2)}/${quarter}`;
 
+  // 막대 위에 금액 라벨 표시하는 커스텀 컴포넌트
+  const CustomBarLabel = ({ x, y, width, value, index }) => {
+    const isSelected = data[index]?.label === currentLabel;
+    return (
+      <text 
+        x={x + width / 2} 
+        y={y - 8} 
+        fill={isSelected ? '#c41e3a' : '#4a5568'}
+        fontSize={10}
+        fontWeight={isSelected ? 700 : 500}
+        textAnchor="middle"
+      >
+        {formatNumber(value, 0)}
+      </text>
+    );
+  };
+
+  // 라인 위에 객단가 라벨 표시
+  const CustomLineLabel = ({ x, y, value, index }) => {
+    const isSelected = data[index]?.label === currentLabel;
+    return (
+      <text 
+        x={x} 
+        y={y - 12} 
+        fill="#c41e3a"
+        fontSize={10}
+        fontWeight={isSelected ? 700 : 500}
+        textAnchor="middle"
+      >
+        {value.toFixed(1)}
+      </text>
+    );
+  };
+
   return (
     <div style={styles.chartBox}>
-      <h3 style={styles.chartTitle}>四半期別推移（2023〜2025年）</h3>
-      <ResponsiveContainer width="100%" height={320}>
-        <ComposedChart data={data} margin={{ top: 20, right: 60, bottom: 20, left: 20 }}>
+      <h3 style={styles.chartTitle}>四半期別 旅行消費額・1人当たり旅行支出の推移</h3>
+      <div style={styles.chartSubtitle}>
+        <span style={styles.legendBar}>■ 訪日外国人旅行消費額（左軸）</span>
+        <span style={styles.legendLine}>● 1人当たり旅行支出（右軸）</span>
+      </div>
+      <ResponsiveContainer width="100%" height={340}>
+        <ComposedChart data={data} margin={{ top: 30, right: 50, bottom: 60, left: 50 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
           <XAxis 
             dataKey="label" 
-            tick={{ fontSize: 11, fill: '#4a5568' }}
+            tick={{ fontSize: 10, fill: '#4a5568' }}
             interval={0}
             angle={-45}
             textAnchor="end"
             height={60}
+            tickFormatter={(value) => {
+              // 23/Q1 → 1-3月期 형식으로 변환
+              const qMap = { 'Q1': '1-3月期', 'Q2': '4-6月期', 'Q3': '7-9月期', 'Q4': '10-12月期' };
+              const [yy, q] = value.split('/');
+              return qMap[q] || value;
+            }}
           />
           <YAxis 
             yAxisId="left"
             tick={{ fontSize: 11, fill: '#4a5568' }}
-            tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-            label={{ value: '消費額（億円）', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#4a5568' }}
+            domain={[0, 30000]}
+            tickFormatter={(v) => v.toLocaleString()}
+            label={{ value: '（億円）', position: 'top', offset: 15, fontSize: 11, fill: '#4a5568' }}
           />
           <YAxis 
             yAxisId="right"
             orientation="right"
             tick={{ fontSize: 11, fill: '#c41e3a' }}
-            domain={[15, 30]}
-            label={{ value: '客単価（万円）', angle: 90, position: 'insideRight', fontSize: 11, fill: '#c41e3a' }}
+            domain={[20, 25]}
+            label={{ value: '（万円）', position: 'top', offset: 15, fontSize: 11, fill: '#c41e3a' }}
           />
           <Tooltip 
             formatter={(value, name) => {
-              if (name === '消費額') return [`${formatNumber(value)}億円`, name];
+              if (name === '旅行消費額') return [`${formatNumber(value, 0)}億円`, name];
               return [`${value.toFixed(1)}万円`, name];
             }}
+            labelFormatter={(label) => {
+              const qMap = { 'Q1': '1-3月期', 'Q2': '4-6月期', 'Q3': '7-9月期', 'Q4': '10-12月期' };
+              const [yy, q] = label.split('/');
+              return `20${yy}年 ${qMap[q]}`;
+            }}
           />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
           <Bar 
             yAxisId="left" 
             dataKey="total" 
-            name="消費額" 
+            name="旅行消費額" 
             radius={[2, 2, 0, 0]}
+            label={<CustomBarLabel />}
             onClick={(data) => {
               if (onSelect && data?.label) {
                 const [y, q] = data.label.split('/');
@@ -460,15 +511,33 @@ const TrendChart = ({ data, year, quarter, onSelect }) => {
             {data.map((entry, index) => (
               <Cell 
                 key={`cell-${index}`} 
-                fill={entry.label === currentLabel ? '#c41e3a' : '#1a1a1a'} 
-                fillOpacity={entry.label === currentLabel ? 1 : 0.7}
+                fill={entry.label === currentLabel ? '#c41e3a' : '#4a90a4'} 
+                fillOpacity={entry.label === currentLabel ? 1 : 0.85}
               />
             ))}
           </Bar>
-          <Line yAxisId="right" type="monotone" dataKey="perPerson" name="客単価" stroke="#c41e3a" strokeWidth={2} dot={{ r: 3, fill: '#c41e3a' }} />
-          <Line yAxisId="right" type="monotone" dataKey="perPerson" name="客単価" stroke="#c41e3a" strokeWidth={2} dot={{ r: 3, fill: '#c41e3a' }} />
+          <Line 
+            yAxisId="right" 
+            type="monotone" 
+            dataKey="perPerson" 
+            name="1人当たり旅行支出" 
+            stroke="#c41e3a" 
+            strokeWidth={2} 
+            dot={{ r: 5, fill: '#c41e3a', stroke: '#fff', strokeWidth: 2 }}
+            label={<CustomLineLabel />}
+          />
         </ComposedChart>
       </ResponsiveContainer>
+      {/* 연도 구분선 */}
+      <div style={styles.yearLabels}>
+        <span style={styles.yearLabel}>2023年</span>
+        <span style={styles.yearLabel}>2024年</span>
+        <span style={styles.yearLabel}>2025年</span>
+      </div>
+      {/* 각주 */}
+      <div style={styles.chartFootnote}>
+        ※ 出典：観光庁「訪日外国人消費動向調査」各四半期確報値
+      </div>
     </div>
   );
 };
@@ -1224,9 +1293,48 @@ const styles = {
     padding: 24
   },
   chartTitle: {
-    margin: '0 0 20px',
+    margin: '0 0 8px',
     fontSize: 15,
-    fontWeight: 600
+    fontWeight: 600,
+    textAlign: 'center'
+  },
+  chartSubtitle: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: 24,
+    marginBottom: 16,
+    fontSize: 12,
+    color: '#4a5568'
+  },
+  legendBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    color: '#4a90a4'
+  },
+  legendLine: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    color: '#c41e3a'
+  },
+  yearLabels: {
+    display: 'flex',
+    justifyContent: 'space-around',
+    paddingTop: 8,
+    borderTop: '1px solid #e2e8f0',
+    marginTop: 8
+  },
+  yearLabel: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: '#4a5568'
+  },
+  chartFootnote: {
+    marginTop: 12,
+    fontSize: 11,
+    color: '#718096',
+    textAlign: 'right'
   },
   noDataNote: {
     fontSize: 12,
