@@ -217,10 +217,13 @@ const KPICard = ({ label, value, unit, change, note }) => (
   </div>
 );
 
-const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, salesData }) => {
+const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, salesData, loadingSales }) => {
   const [showAll, setShowAll] = useState(false);
   const [viewMode, setViewMode] = useState('ranking');
   const INITIAL_COUNT = 5;
+  
+  // 영업 시트가 있는 국가 목록
+  const salesCountries = ['韓国', '中国', '台湾', '香港', '米国', 'タイ', 'ベトナム', 'オーストラリア', 'シンガポール'];
 
   const groupedByRegion = useMemo(() => {
     if (!data?.length) return {};
@@ -315,9 +318,9 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
               </div>
             </div>
 
-            {countrySales?.length > 0 && (
+            {countrySales?.length > 0 ? (
               <div style={styles.salesSection}>
-                <div style={styles.sectionTitle}>買物品目別 客単価</div>
+                <div style={styles.sectionTitle}>買物品目別 購入者単価</div>
                 <table style={styles.salesTable}>
                   <thead>
                     <tr>
@@ -328,20 +331,30 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
                     </tr>
                   </thead>
                   <tbody>
-                    {countrySales.slice(0, 6).map((sale, idx) => (
+                    {countrySales.map((sale, idx) => (
                       <tr key={idx}>
                         <td style={styles.td}>{sale.item}</td>
                         <td style={styles.tdRight}>{formatNumber(sale.y2024, 0)}円</td>
                         <td style={styles.tdRight}>{formatNumber(sale.y2025, 0)}円</td>
-                        <td style={{ ...styles.tdRight, color: sale.yoy >= 100 ? '#1a1a1a' : '#c41e3a' }}>
-                          {sale.yoy}%
+                        <td style={{ ...styles.tdRight, color: sale.yoy >= 100 ? '#16a34a' : '#c41e3a' }}>
+                          {sale.yoy >= 100 ? '+' : ''}{(sale.yoy - 100).toFixed(1)}%
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            )}
+            ) : loadingSales && salesCountries.includes(item.country) ? (
+              <div style={styles.salesSection}>
+                <div style={styles.sectionTitle}>買物品目別 購入者単価</div>
+                <div style={styles.salesLoading}>データを読み込み中...</div>
+              </div>
+            ) : salesCountries.includes(item.country) ? (
+              <div style={styles.salesSection}>
+                <div style={styles.sectionTitle}>買物品目別 購入者単価</div>
+                <div style={styles.salesLoading}>データがありません</div>
+              </div>
+            ) : null}
           </div>
         )}
       </div>
@@ -530,11 +543,20 @@ const TrendChart = ({ data, year, quarter, onSelect }) => {
           />
         </ComposedChart>
       </ResponsiveContainer>
-      {/* 연도 구분선 */}
-      <div style={styles.yearLabels}>
-        <span style={styles.yearLabel}>2023年</span>
-        <span style={styles.yearLabel}>2024年</span>
-        <span style={styles.yearLabel}>2025年</span>
+      {/* 연도 구분선 - 각 연도 4개 분기 아래에 정확히 배치 */}
+      <div style={styles.yearLabelsContainer}>
+        <div style={styles.yearLabelGroup}>
+          <div style={styles.yearBracket}></div>
+          <span style={styles.yearLabel}>2023年</span>
+        </div>
+        <div style={styles.yearLabelGroup}>
+          <div style={styles.yearBracket}></div>
+          <span style={styles.yearLabel}>2024年</span>
+        </div>
+        <div style={styles.yearLabelGroup}>
+          <div style={styles.yearBracket}></div>
+          <span style={styles.yearLabel}>2025年</span>
+        </div>
       </div>
       {/* 각주 */}
       <div style={styles.chartFootnote}>
@@ -760,6 +782,8 @@ export default function App() {
   }, [year, quarter]);
 
   // 국가 확장 시 해당 국가의 영업(買物상세) 데이터 로드
+  const [loadingSales, setLoadingSales] = useState(false);
+  
   useEffect(() => {
     const loadSalesData = async () => {
       if (!expandedCountry) return;
@@ -771,10 +795,14 @@ export default function App() {
       const salesCountries = ['韓国', '中国', '台湾', '香港', '米国', 'タイ', 'ベトナム', 'オーストラリア', 'シンガポール'];
       if (!salesCountries.includes(expandedCountry)) return;
       
+      setLoadingSales(true);
       try {
         await delay(100);
         const rows = await fetchSheetData(`営業_${expandedCountry}`);
-        if (!rows || rows.length < 2) return;
+        if (!rows || rows.length < 2) {
+          setLoadingSales(false);
+          return;
+        }
         
         const validItems = ['宿泊費', '飲食費', '交通費', '娯楽等サービス費', '買物代', '菓子類', '酒類', '化粧品・香水', '医薬品・健康グッズ', '衣類', 'カバン・靴', '電気製品', 'マンガ・アニメ関連商品', 'その他買物代'];
         
@@ -790,11 +818,13 @@ export default function App() {
         }
       } catch (err) {
         console.error(`Error loading sales data for ${expandedCountry}:`, err);
+      } finally {
+        setLoadingSales(false);
       }
     };
     
     loadSalesData();
-  }, [expandedCountry]);
+  }, [expandedCountry, salesData]);
 
   const kpiData = useMemo(() => {
     const total = expenseData[0];
@@ -899,6 +929,7 @@ export default function App() {
                     expandedCountry={expandedCountry}
                     setExpandedCountry={setExpandedCountry}
                     salesData={salesData}
+                    loadingSales={loadingSales}
                   />
                 </div>
               </>
@@ -1264,7 +1295,17 @@ const styles = {
     borderRadius: 2,
     transition: 'width 0.3s'
   },
-  salesSection: {},
+  salesSection: {
+    marginTop: 16
+  },
+  salesLoading: {
+    padding: '20px',
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#718096',
+    backgroundColor: '#f7f7f7',
+    borderRadius: 4
+  },
   salesTable: {
     width: '100%',
     fontSize: 12,
@@ -1349,25 +1390,44 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: 6,
-    color: '#4a90a4'
+    color: '#4a90a4',
+    fontWeight: 500
   },
   legendLine: {
     display: 'flex',
     alignItems: 'center',
     gap: 6,
-    color: '#c41e3a'
+    color: '#c41e3a',
+    fontWeight: 500
   },
-  yearLabels: {
+  yearLabelsContainer: {
     display: 'flex',
     justifyContent: 'space-around',
-    paddingTop: 8,
-    borderTop: '1px solid #e2e8f0',
-    marginTop: 8
+    paddingTop: 12,
+    marginTop: 8,
+    marginLeft: 50,
+    marginRight: 50
+  },
+  yearLabelGroup: {
+    flex: 1,
+    textAlign: 'center',
+    position: 'relative'
+  },
+  yearBracket: {
+    position: 'absolute',
+    top: -8,
+    left: '10%',
+    right: '10%',
+    height: 6,
+    borderLeft: '1px solid #cbd5e0',
+    borderRight: '1px solid #cbd5e0',
+    borderTop: '1px solid #cbd5e0'
   },
   yearLabel: {
     fontSize: 12,
     fontWeight: 600,
-    color: '#4a5568'
+    color: '#4a5568',
+    paddingTop: 4
   },
   chartFootnote: {
     marginTop: 12,
