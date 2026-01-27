@@ -790,14 +790,6 @@ export default function App() {
         setLoading(false);
       }
     };
-        
-      } catch (err) {
-        console.error(err);
-        setError('データの読み込みに失敗しました');
-      } finally {
-        setLoading(false);
-      }
-    };
     
     loadData();
   }, [year]);
