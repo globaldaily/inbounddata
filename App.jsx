@@ -97,6 +97,433 @@ const getRegionForCountry = (country) => {
   return 'その他';
 };
 
+// ============================================================
+// 📊 랭킹 분석 컴포넌트 (API 호출 없이 기존 데이터 활용)
+// ============================================================
+const RankingAnalysis = ({ data, previousData }) => {
+  const analysis = useMemo(() => {
+    if (!data || data.length < 2) return null;
+    
+    const countries = data.filter(d => d.country !== '全国籍・地域' && d.country !== 'その他');
+    const prevMap = {};
+    previousData?.forEach(d => { prevMap[d.country] = d; });
+    
+    // 소비액 TOP 5
+    const byTotal = [...countries].sort((a, b) => b.total - a.total).slice(0, 5);
+    
+    // 1인당 지출 TOP 5
+    const byPerPerson = [...countries].sort((a, b) => b.perPerson - a.perPerson).slice(0, 5);
+    
+    // 방문자수 TOP 5
+    const byVisitors = [...countries].sort((a, b) => b.visitors - a.visitors).slice(0, 5);
+    
+    // 성장률 TOP 5 (전년 대비)
+    const withGrowth = countries.map(c => {
+      const prev = prevMap[c.country];
+      const growth = prev?.total ? ((c.total - prev.total) / prev.total) * 100 : 0;
+      return { ...c, growth };
+    }).filter(c => c.growth !== 0);
+    const byGrowth = [...withGrowth].sort((a, b) => b.growth - a.growth).slice(0, 5);
+    const byDecline = [...withGrowth].sort((a, b) => a.growth - b.growth).slice(0, 5);
+    
+    // 쇼핑 비율 TOP 5
+    const byShoppingRatio = countries.map(c => ({
+      ...c,
+      shopRatio: c.total ? (c.shopping / c.total) * 100 : 0
+    })).sort((a, b) => b.shopRatio - a.shopRatio).slice(0, 5);
+    
+    // 체류일수 TOP 5
+    const byNights = [...countries].filter(c => c.avgNights > 0).sort((a, b) => b.avgNights - a.avgNights).slice(0, 5);
+    
+    return { byTotal, byPerPerson, byVisitors, byGrowth, byDecline, byShoppingRatio, byNights };
+  }, [data, previousData]);
+
+  if (!analysis) return null;
+
+  const RankingCard = ({ title, icon, items, valueKey, format, suffix = '', highlight = false }) => (
+    <div style={rankStyles.card}>
+      <div style={rankStyles.cardTitle}>{icon} {title}</div>
+      <div style={rankStyles.rankList}>
+        {items.map((item, idx) => (
+          <div key={item.country} style={rankStyles.rankItem}>
+            <span style={rankStyles.rankNum}>{idx + 1}</span>
+            <span style={rankStyles.flag}>{COUNTRY_FLAGS[item.country] || '🌐'}</span>
+            <span style={rankStyles.countryName}>{item.country}</span>
+            <span style={{
+              ...rankStyles.value,
+              color: highlight && item[valueKey] < 0 ? '#c41e3a' : highlight && item[valueKey] > 0 ? '#16a34a' : '#1a1a1a'
+            }}>
+              {highlight && item[valueKey] > 0 ? '+' : ''}{format(item[valueKey])}{suffix}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={rankStyles.container}>
+      <h3 style={rankStyles.sectionTitle}>📊 国別ランキング分析</h3>
+      <div style={rankStyles.grid}>
+        <RankingCard 
+          title="消費額 TOP5" 
+          icon="💰" 
+          items={analysis.byTotal} 
+          valueKey="total" 
+          format={v => formatNumber(v, 0)} 
+          suffix="億円" 
+        />
+        <RankingCard 
+          title="客単価 TOP5" 
+          icon="👤" 
+          items={analysis.byPerPerson} 
+          valueKey="perPerson" 
+          format={v => formatNumber(v / 10000, 1)} 
+          suffix="万円" 
+        />
+        <RankingCard 
+          title="訪日客数 TOP5" 
+          icon="✈️" 
+          items={analysis.byVisitors} 
+          valueKey="visitors" 
+          format={v => formatNumber(v / 10000, 0)} 
+          suffix="万人" 
+        />
+        <RankingCard 
+          title="成長率 TOP5" 
+          icon="📈" 
+          items={analysis.byGrowth} 
+          valueKey="growth" 
+          format={v => v.toFixed(1)} 
+          suffix="%" 
+          highlight 
+        />
+        <RankingCard 
+          title="買物比率 TOP5" 
+          icon="🛍️" 
+          items={analysis.byShoppingRatio} 
+          valueKey="shopRatio" 
+          format={v => v.toFixed(1)} 
+          suffix="%" 
+        />
+        <RankingCard 
+          title="平均泊数 TOP5" 
+          icon="🏨" 
+          items={analysis.byNights} 
+          valueKey="avgNights" 
+          format={v => v.toFixed(1)} 
+          suffix="泊" 
+        />
+      </div>
+    </div>
+  );
+};
+
+const rankStyles = {
+  container: { marginTop: 24 },
+  sectionTitle: { fontSize: 16, fontWeight: 700, marginBottom: 16, color: '#1a1a1a' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 },
+  card: { backgroundColor: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e2e8f0' },
+  cardTitle: { fontSize: 14, fontWeight: 600, marginBottom: 12, color: '#4a5568' },
+  rankList: { display: 'flex', flexDirection: 'column', gap: 8 },
+  rankItem: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 },
+  rankNum: { width: 20, height: 20, borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#64748b' },
+  flag: { fontSize: 16 },
+  countryName: { flex: 1, color: '#1a1a1a' },
+  value: { fontWeight: 600, fontFamily: 'monospace' }
+};
+
+// ============================================================
+// 📊 지역별 비교 컴포넌트
+// ============================================================
+const RegionComparison = ({ data, previousData }) => {
+  const regionData = useMemo(() => {
+    if (!data || data.length < 2) return [];
+    
+    const prevMap = {};
+    previousData?.forEach(d => { prevMap[d.country] = d; });
+    
+    return Object.entries(REGION_GROUPS).map(([region, countries]) => {
+      const regionCountries = data.filter(d => countries.includes(d.country));
+      const total = regionCountries.reduce((s, c) => s + (c.total || 0), 0);
+      const visitors = regionCountries.reduce((s, c) => s + (c.visitors || 0), 0);
+      const shopping = regionCountries.reduce((s, c) => s + (c.shopping || 0), 0);
+      
+      const prevTotal = countries.reduce((s, c) => s + (prevMap[c]?.total || 0), 0);
+      const growth = prevTotal ? ((total - prevTotal) / prevTotal) * 100 : 0;
+      
+      return {
+        region,
+        total,
+        visitors,
+        shopping,
+        shopRatio: total ? (shopping / total) * 100 : 0,
+        perPerson: visitors ? total / visitors * 100000000 : 0, // 억엔→엔 변환
+        growth,
+        color: REGION_COLORS[region]
+      };
+    }).filter(r => r.total > 0);
+  }, [data, previousData]);
+
+  if (regionData.length === 0) return null;
+
+  const maxTotal = Math.max(...regionData.map(r => r.total));
+
+  return (
+    <div style={regionStyles.container}>
+      <h3 style={regionStyles.sectionTitle}>🌍 地域別消費比較</h3>
+      <div style={regionStyles.grid}>
+        {regionData.map(r => (
+          <div key={r.region} style={regionStyles.card}>
+            <div style={regionStyles.header}>
+              <span style={{ ...regionStyles.regionDot, backgroundColor: r.color }} />
+              <span style={regionStyles.regionName}>{r.region}</span>
+            </div>
+            <div style={regionStyles.mainValue}>
+              {formatNumber(r.total, 0)}<span style={regionStyles.unit}>億円</span>
+            </div>
+            <div style={regionStyles.bar}>
+              <div style={{ ...regionStyles.barFill, width: `${(r.total / maxTotal) * 100}%`, backgroundColor: r.color }} />
+            </div>
+            <div style={regionStyles.stats}>
+              <div style={regionStyles.stat}>
+                <span style={regionStyles.statLabel}>訪日客数</span>
+                <span style={regionStyles.statValue}>{formatNumber(r.visitors / 10000, 0)}万人</span>
+              </div>
+              <div style={regionStyles.stat}>
+                <span style={regionStyles.statLabel}>客単価</span>
+                <span style={regionStyles.statValue}>{formatNumber(r.perPerson / 10000, 1)}万円</span>
+              </div>
+              <div style={regionStyles.stat}>
+                <span style={regionStyles.statLabel}>買物比率</span>
+                <span style={regionStyles.statValue}>{r.shopRatio.toFixed(1)}%</span>
+              </div>
+              <div style={regionStyles.stat}>
+                <span style={regionStyles.statLabel}>前年比</span>
+                <span style={{ ...regionStyles.statValue, color: r.growth >= 0 ? '#16a34a' : '#c41e3a' }}>
+                  {r.growth >= 0 ? '+' : ''}{r.growth.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const regionStyles = {
+  container: { marginTop: 24 },
+  sectionTitle: { fontSize: 16, fontWeight: 700, marginBottom: 16, color: '#1a1a1a' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 },
+  card: { backgroundColor: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e2e8f0' },
+  header: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 },
+  regionDot: { width: 12, height: 12, borderRadius: '50%' },
+  regionName: { fontSize: 14, fontWeight: 600 },
+  mainValue: { fontSize: 24, fontWeight: 700, color: '#1a1a1a' },
+  unit: { fontSize: 14, fontWeight: 400, color: '#64748b', marginLeft: 4 },
+  bar: { height: 6, backgroundColor: '#f1f5f9', borderRadius: 3, marginTop: 8, marginBottom: 12, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 3, transition: 'width 0.3s' },
+  stats: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 },
+  stat: { display: 'flex', flexDirection: 'column', gap: 2 },
+  statLabel: { fontSize: 11, color: '#64748b' },
+  statValue: { fontSize: 13, fontWeight: 600, fontFamily: 'monospace' }
+};
+
+// ============================================================
+// 📊 費目別 국가 비교 컴포넌트
+// ============================================================
+const CategoryComparison = ({ data }) => {
+  const [selectedCategory, setSelectedCategory] = useState('shopping');
+  
+  const categories = [
+    { id: 'total', label: '総消費額', icon: '💰' },
+    { id: 'accommodation', label: '宿泊費', icon: '🏨' },
+    { id: 'food', label: '飲食費', icon: '🍽️' },
+    { id: 'shopping', label: '買物代', icon: '🛍️' },
+    { id: 'transport', label: '交通費', icon: '🚃' },
+    { id: 'entertainment', label: '娯楽等', icon: '🎯' }
+  ];
+
+  const chartData = useMemo(() => {
+    if (!data || data.length < 2) return [];
+    return data
+      .filter(d => d.country !== '全国籍・地域' && d.country !== 'その他')
+      .map(d => ({
+        country: d.country,
+        flag: COUNTRY_FLAGS[d.country] || '🌐',
+        value: d[selectedCategory] || 0,
+        region: getRegionForCountry(d.country)
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+  }, [data, selectedCategory]);
+
+  const maxValue = Math.max(...chartData.map(d => d.value));
+
+  return (
+    <div style={catStyles.container}>
+      <h3 style={catStyles.sectionTitle}>📊 費目別 国別比較</h3>
+      <div style={catStyles.categoryTabs}>
+        {categories.map(cat => (
+          <button
+            key={cat.id}
+            onClick={() => setSelectedCategory(cat.id)}
+            style={{
+              ...catStyles.catTab,
+              ...(selectedCategory === cat.id ? catStyles.catTabActive : {})
+            }}
+          >
+            {cat.icon} {cat.label}
+          </button>
+        ))}
+      </div>
+      <div style={catStyles.chartContainer}>
+        {chartData.map((d, idx) => (
+          <div key={d.country} style={catStyles.barRow}>
+            <div style={catStyles.barLabel}>
+              <span style={catStyles.barRank}>{idx + 1}</span>
+              <span style={catStyles.barFlag}>{d.flag}</span>
+              <span style={catStyles.barCountry}>{d.country}</span>
+            </div>
+            <div style={catStyles.barWrapper}>
+              <div 
+                style={{ 
+                  ...catStyles.barFill, 
+                  width: `${(d.value / maxValue) * 100}%`,
+                  backgroundColor: REGION_COLORS[d.region] || '#64748b'
+                }} 
+              />
+              <span style={catStyles.barValue}>{formatNumber(d.value, 0)}億円</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const catStyles = {
+  container: { marginTop: 24, backgroundColor: '#fff', borderRadius: 8, padding: 20, border: '1px solid #e2e8f0' },
+  sectionTitle: { fontSize: 16, fontWeight: 700, marginBottom: 16, color: '#1a1a1a' },
+  categoryTabs: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
+  catTab: { padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, backgroundColor: '#fff', cursor: 'pointer', fontSize: 13, transition: 'all 0.2s' },
+  catTabActive: { backgroundColor: '#1a1a1a', color: '#fff', borderColor: '#1a1a1a' },
+  chartContainer: { display: 'flex', flexDirection: 'column', gap: 12 },
+  barRow: { display: 'flex', alignItems: 'center', gap: 12 },
+  barLabel: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 140 },
+  barRank: { width: 20, height: 20, borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#64748b' },
+  barFlag: { fontSize: 16 },
+  barCountry: { fontSize: 13, color: '#1a1a1a' },
+  barWrapper: { flex: 1, display: 'flex', alignItems: 'center', gap: 8 },
+  barFill: { height: 24, borderRadius: 4, transition: 'width 0.3s' },
+  barValue: { fontSize: 12, fontWeight: 600, color: '#64748b', minWidth: 70, textAlign: 'right' }
+};
+
+// ============================================================
+// 📊 인사이트 하이라이트 컴포넌트
+// ============================================================
+const InsightHighlights = ({ data, previousData }) => {
+  const insights = useMemo(() => {
+    if (!data || data.length < 2 || !previousData || previousData.length < 2) return [];
+    
+    const countries = data.filter(d => d.country !== '全国籍・地域' && d.country !== 'その他');
+    const prevMap = {};
+    previousData.forEach(d => { prevMap[d.country] = d; });
+    
+    const result = [];
+    
+    // 1. 가장 성장한 국가
+    const withGrowth = countries.map(c => {
+      const prev = prevMap[c.country];
+      return { ...c, growth: prev?.total ? ((c.total - prev.total) / prev.total) * 100 : 0 };
+    }).filter(c => c.growth !== 0);
+    
+    const topGrowth = withGrowth.sort((a, b) => b.growth - a.growth)[0];
+    if (topGrowth && topGrowth.growth > 0) {
+      result.push({
+        icon: '🚀',
+        type: 'positive',
+        text: `${COUNTRY_FLAGS[topGrowth.country]} ${topGrowth.country}が前年比+${topGrowth.growth.toFixed(1)}%で最も成長`
+      });
+    }
+    
+    // 2. 가장 감소한 국가
+    const topDecline = withGrowth.sort((a, b) => a.growth - b.growth)[0];
+    if (topDecline && topDecline.growth < 0) {
+      result.push({
+        icon: '📉',
+        type: 'negative',
+        text: `${COUNTRY_FLAGS[topDecline.country]} ${topDecline.country}が前年比${topDecline.growth.toFixed(1)}%で減少`
+      });
+    }
+    
+    // 3. 1인당 지출 최고 국가
+    const topPerPerson = [...countries].sort((a, b) => b.perPerson - a.perPerson)[0];
+    if (topPerPerson) {
+      result.push({
+        icon: '💎',
+        type: 'info',
+        text: `客単価1位は${COUNTRY_FLAGS[topPerPerson.country]} ${topPerPerson.country}（${formatNumber(topPerPerson.perPerson / 10000, 1)}万円）`
+      });
+    }
+    
+    // 4. 방문자 최다 국가
+    const topVisitors = [...countries].sort((a, b) => b.visitors - a.visitors)[0];
+    if (topVisitors) {
+      result.push({
+        icon: '✈️',
+        type: 'info',
+        text: `訪日客数1位は${COUNTRY_FLAGS[topVisitors.country]} ${topVisitors.country}（${formatNumber(topVisitors.visitors / 10000, 0)}万人）`
+      });
+    }
+    
+    // 5. 쇼핑 비율 최고 국가
+    const withShopRatio = countries.map(c => ({ ...c, shopRatio: c.total ? (c.shopping / c.total) * 100 : 0 }));
+    const topShopping = withShopRatio.sort((a, b) => b.shopRatio - a.shopRatio)[0];
+    if (topShopping) {
+      result.push({
+        icon: '🛍️',
+        type: 'info',
+        text: `買物比率が最も高いのは${COUNTRY_FLAGS[topShopping.country]} ${topShopping.country}（${topShopping.shopRatio.toFixed(1)}%）`
+      });
+    }
+    
+    return result;
+  }, [data, previousData]);
+
+  if (insights.length === 0) return null;
+
+  return (
+    <div style={insightStyles.container}>
+      <h3 style={insightStyles.title}>💡 主要インサイト</h3>
+      <div style={insightStyles.grid}>
+        {insights.map((insight, idx) => (
+          <div 
+            key={idx} 
+            style={{
+              ...insightStyles.card,
+              borderLeftColor: insight.type === 'positive' ? '#16a34a' : insight.type === 'negative' ? '#c41e3a' : '#3b82f6'
+            }}
+          >
+            <span style={insightStyles.icon}>{insight.icon}</span>
+            <span style={insightStyles.text}>{insight.text}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const insightStyles = {
+  container: { marginTop: 24 },
+  title: { fontSize: 16, fontWeight: 700, marginBottom: 16, color: '#1a1a1a' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 },
+  card: { display: 'flex', alignItems: 'center', gap: 12, backgroundColor: '#fff', padding: '12px 16px', borderRadius: 8, border: '1px solid #e2e8f0', borderLeft: '4px solid' },
+  icon: { fontSize: 20 },
+  text: { fontSize: 13, color: '#1a1a1a', lineHeight: 1.5 }
+};
+
 // API 요청 딜레이 (429 에러 방지)
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -907,8 +1334,9 @@ export default function App() {
         <nav style={styles.tabs}>
           {[
             { id: 'overview', label: '国別', icon: '🌏' },
+            { id: 'analysis', label: '分析', icon: '📊' },
             { id: 'matrix', label: 'マトリクス', icon: '📈' },
-            { id: 'composition', label: '費目構成', icon: '📊' }
+            { id: 'composition', label: '費目構成', icon: '📋' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -950,6 +1378,14 @@ export default function App() {
             )}
             {activeTab === 'matrix' && <MatrixChart data={expenseData} previousData={previousExpenseData} />}
             {activeTab === 'composition' && <CompositionChart data={expenseData} />}
+            {activeTab === 'analysis' && (
+              <>
+                <InsightHighlights data={expenseData} previousData={previousExpenseData} />
+                <RegionComparison data={expenseData} previousData={previousExpenseData} />
+                <RankingAnalysis data={expenseData} previousData={previousExpenseData} />
+                <CategoryComparison data={expenseData} />
+              </>
+            )}
           </>
         )}
       </main>
