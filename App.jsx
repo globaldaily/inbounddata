@@ -1222,6 +1222,437 @@ const matrixStyles = {
   note: { textAlign: 'center', fontSize: 12, color: '#9ca3af', marginTop: 16 }
 };
 
+// ============================================================
+// 국가 vs 국가 비교 컴포넌트
+// ============================================================
+const CountryCompare = ({ data, previousData }) => {
+  const [country1, setCountry1] = useState('中国');
+  const [country2, setCountry2] = useState('韓国');
+  
+  const countries = useMemo(() => {
+    if (!data) return [];
+    return data.filter(d => d.country !== '全国籍・地域' && d.country !== 'その他').map(d => d.country);
+  }, [data]);
+
+  const getData = (countryName) => {
+    const current = data?.find(d => d.country === countryName);
+    const prev = previousData?.find(d => d.country === countryName);
+    if (!current) return null;
+    
+    const growth = prev?.total ? ((current.total - prev.total) / prev.total) * 100 : 0;
+    const shopRatio = current.total ? (current.shopping / current.total) * 100 : 0;
+    
+    return {
+      ...current,
+      growth,
+      shopRatio,
+      perPersonMan: current.perPerson ? current.perPerson / 10000 : 0,
+      visitorsMan: current.visitors ? current.visitors / 10000 : 0
+    };
+  };
+
+  const d1 = getData(country1);
+  const d2 = getData(country2);
+
+  const metrics = [
+    { label: '消費額', key: 'total', unit: '億円', format: v => formatNumber(v, 0) },
+    { label: '訪日客数', key: 'visitorsMan', unit: '万人', format: v => formatNumber(v, 0) },
+    { label: '客単価', key: 'perPersonMan', unit: '万円', format: v => formatNumber(v, 1) },
+    { label: '成長率', key: 'growth', unit: '%', format: v => (v >= 0 ? '+' : '') + v.toFixed(1), isGrowth: true },
+    { label: '買物比率', key: 'shopRatio', unit: '%', format: v => v.toFixed(1) },
+    { label: '平均泊数', key: 'avgNights', unit: '泊', format: v => v?.toFixed(1) || '—' },
+  ];
+
+  if (!d1 || !d2) return null;
+
+  return (
+    <div style={compareStyles.container}>
+      <h3 style={compareStyles.title}>国別比較</h3>
+      <p style={compareStyles.subtitle}>2カ国を選んで詳細比較</p>
+      
+      <div style={compareStyles.selectors}>
+        <select value={country1} onChange={e => setCountry1(e.target.value)} style={compareStyles.select}>
+          {countries.map(c => <option key={c} value={c}>{COUNTRY_FLAGS[c]} {c}</option>)}
+        </select>
+        <span style={compareStyles.vs}>VS</span>
+        <select value={country2} onChange={e => setCountry2(e.target.value)} style={compareStyles.select}>
+          {countries.map(c => <option key={c} value={c}>{COUNTRY_FLAGS[c]} {c}</option>)}
+        </select>
+      </div>
+
+      <div style={compareStyles.table}>
+        <div style={compareStyles.headerRow}>
+          <div style={compareStyles.metricCol}></div>
+          <div style={compareStyles.countryCol}>
+            <span style={compareStyles.flag}>{COUNTRY_FLAGS[country1]}</span>
+            <span>{country1}</span>
+          </div>
+          <div style={compareStyles.countryCol}>
+            <span style={compareStyles.flag}>{COUNTRY_FLAGS[country2]}</span>
+            <span>{country2}</span>
+          </div>
+          <div style={compareStyles.diffCol}>差分</div>
+        </div>
+        
+        {metrics.map(m => {
+          const v1 = d1[m.key] || 0;
+          const v2 = d2[m.key] || 0;
+          const diff = v1 - v2;
+          const winner = v1 > v2 ? 1 : v2 > v1 ? 2 : 0;
+          
+          return (
+            <div key={m.key} style={compareStyles.row}>
+              <div style={compareStyles.metricCol}>{m.label}</div>
+              <div style={{...compareStyles.valueCol, fontWeight: winner === 1 ? 700 : 400, color: winner === 1 ? '#1a1a1a' : '#6b7280'}}>
+                {m.format(v1)}<span style={compareStyles.unit}>{m.unit}</span>
+                {winner === 1 && <span style={compareStyles.winBadge}>↑</span>}
+              </div>
+              <div style={{...compareStyles.valueCol, fontWeight: winner === 2 ? 700 : 400, color: winner === 2 ? '#1a1a1a' : '#6b7280'}}>
+                {m.format(v2)}<span style={compareStyles.unit}>{m.unit}</span>
+                {winner === 2 && <span style={compareStyles.winBadge}>↑</span>}
+              </div>
+              <div style={{...compareStyles.diffCol, color: diff > 0 ? '#059669' : diff < 0 ? '#dc2626' : '#6b7280'}}>
+                {diff > 0 ? '+' : ''}{m.format(diff)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const compareStyles = {
+  container: { backgroundColor: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', marginTop: 32 },
+  title: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: 0 },
+  subtitle: { fontSize: 14, color: '#6b7280', margin: '8px 0 24px' },
+  selectors: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 32 },
+  select: { padding: '12px 16px', fontSize: 16, fontWeight: 500, border: '2px solid #e5e7eb', borderRadius: 8, backgroundColor: '#fff', cursor: 'pointer', minWidth: 160 },
+  vs: { fontSize: 18, fontWeight: 800, color: '#9ca3af' },
+  table: { },
+  headerRow: { display: 'grid', gridTemplateColumns: '120px 1fr 1fr 100px', gap: 16, padding: '12px 0', borderBottom: '2px solid #1a1a1a', marginBottom: 8 },
+  row: { display: 'grid', gridTemplateColumns: '120px 1fr 1fr 100px', gap: 16, padding: '14px 0', borderBottom: '1px solid #f3f4f6' },
+  metricCol: { fontSize: 14, fontWeight: 600, color: '#374151' },
+  countryCol: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600 },
+  flag: { fontSize: 20 },
+  valueCol: { fontSize: 18, display: 'flex', alignItems: 'baseline', gap: 4 },
+  unit: { fontSize: 12, color: '#9ca3af', marginLeft: 2 },
+  diffCol: { fontSize: 14, fontWeight: 600, textAlign: 'right' },
+  winBadge: { marginLeft: 6, fontSize: 12, color: '#059669' }
+};
+
+// ============================================================
+// 시장 점유율 도넛 차트
+// ============================================================
+const MarketShareChart = ({ data }) => {
+  const shareData = useMemo(() => {
+    if (!data || data.length < 2) return [];
+    
+    const total = data[0]?.total || 0;
+    const countries = data.slice(1).filter(d => d.country !== 'その他');
+    
+    // TOP 6 + その他
+    const sorted = [...countries].sort((a, b) => b.total - a.total);
+    const top6 = sorted.slice(0, 6);
+    const othersTotal = sorted.slice(6).reduce((s, c) => s + c.total, 0) + (data.find(d => d.country === 'その他')?.total || 0);
+    
+    const result = top6.map((c, i) => ({
+      country: c.country,
+      value: c.total,
+      share: (c.total / total) * 100,
+      flag: COUNTRY_FLAGS[c.country],
+      color: ['#1a1a1a', '#374151', '#4b5563', '#6b7280', '#9ca3af', '#d1d5db'][i]
+    }));
+    
+    if (othersTotal > 0) {
+      result.push({
+        country: 'その他',
+        value: othersTotal,
+        share: (othersTotal / total) * 100,
+        flag: '🌐',
+        color: '#e5e7eb'
+      });
+    }
+    
+    return result;
+  }, [data]);
+
+  if (shareData.length === 0) return null;
+
+  // 원형 그래프를 위한 계산
+  let cumulativePercent = 0;
+
+  return (
+    <div style={shareStyles.container}>
+      <h3 style={shareStyles.title}>市場シェア</h3>
+      <p style={shareStyles.subtitle}>国別消費額の構成比</p>
+      
+      <div style={shareStyles.content}>
+        <div style={shareStyles.chartArea}>
+          <svg viewBox="0 0 100 100" style={shareStyles.svg}>
+            {shareData.map((d, i) => {
+              const startPercent = cumulativePercent;
+              cumulativePercent += d.share;
+              
+              const startAngle = (startPercent / 100) * 360 - 90;
+              const endAngle = (cumulativePercent / 100) * 360 - 90;
+              
+              const startRad = (startAngle * Math.PI) / 180;
+              const endRad = (endAngle * Math.PI) / 180;
+              
+              const x1 = 50 + 40 * Math.cos(startRad);
+              const y1 = 50 + 40 * Math.sin(startRad);
+              const x2 = 50 + 40 * Math.cos(endRad);
+              const y2 = 50 + 40 * Math.sin(endRad);
+              
+              const largeArc = d.share > 50 ? 1 : 0;
+              
+              return (
+                <path
+                  key={i}
+                  d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                  fill={d.color}
+                />
+              );
+            })}
+            <circle cx="50" cy="50" r="25" fill="#fff" />
+          </svg>
+        </div>
+        
+        <div style={shareStyles.legend}>
+          {shareData.map((d, i) => (
+            <div key={i} style={shareStyles.legendItem}>
+              <div style={{...shareStyles.legendDot, backgroundColor: d.color}} />
+              <span style={shareStyles.legendFlag}>{d.flag}</span>
+              <span style={shareStyles.legendCountry}>{d.country}</span>
+              <span style={shareStyles.legendValue}>{d.share.toFixed(1)}%</span>
+              <span style={shareStyles.legendAmount}>{formatNumber(d.value, 0)}億円</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const shareStyles = {
+  container: { backgroundColor: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', marginTop: 32 },
+  title: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: 0 },
+  subtitle: { fontSize: 14, color: '#6b7280', margin: '8px 0 24px' },
+  content: { display: 'grid', gridTemplateColumns: '200px 1fr', gap: 40, alignItems: 'center' },
+  chartArea: { },
+  svg: { width: '100%', height: 'auto' },
+  legend: { display: 'flex', flexDirection: 'column', gap: 12 },
+  legendItem: { display: 'grid', gridTemplateColumns: '16px 28px 80px 60px 1fr', gap: 8, alignItems: 'center' },
+  legendDot: { width: 16, height: 16, borderRadius: 4 },
+  legendFlag: { fontSize: 18 },
+  legendCountry: { fontSize: 14, fontWeight: 500 },
+  legendValue: { fontSize: 16, fontWeight: 700, textAlign: 'right' },
+  legendAmount: { fontSize: 13, color: '#6b7280', textAlign: 'right' }
+};
+
+// ============================================================
+// 費目別 스택바 차트
+// ============================================================
+const ExpenseStackChart = ({ data }) => {
+  const chartData = useMemo(() => {
+    if (!data || data.length < 2) return [];
+    
+    return data
+      .filter(d => d.country !== '全国籍・地域' && d.country !== 'その他' && d.total > 500)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10)
+      .map(d => ({
+        country: d.country,
+        flag: COUNTRY_FLAGS[d.country],
+        total: d.total,
+        accommodation: d.accommodation,
+        food: d.food,
+        shopping: d.shopping,
+        transport: d.transport,
+        entertainment: d.entertainment,
+        other: d.other,
+        accPct: (d.accommodation / d.total) * 100,
+        foodPct: (d.food / d.total) * 100,
+        shopPct: (d.shopping / d.total) * 100,
+        transPct: (d.transport / d.total) * 100,
+        entPct: (d.entertainment / d.total) * 100,
+        otherPct: (d.other / d.total) * 100
+      }));
+  }, [data]);
+
+  const categories = [
+    { key: 'accPct', label: '宿泊', color: '#1a1a1a' },
+    { key: 'foodPct', label: '飲食', color: '#374151' },
+    { key: 'shopPct', label: '買物', color: '#dc2626' },
+    { key: 'transPct', label: '交通', color: '#6b7280' },
+    { key: 'entPct', label: '娯楽', color: '#9ca3af' },
+    { key: 'otherPct', label: '他', color: '#e5e7eb' }
+  ];
+
+  if (chartData.length === 0) return null;
+
+  return (
+    <div style={stackStyles.container}>
+      <h3 style={stackStyles.title}>費目構成比較</h3>
+      <p style={stackStyles.subtitle}>国別の消費内訳を比較</p>
+      
+      <div style={stackStyles.legend}>
+        {categories.map(cat => (
+          <div key={cat.key} style={stackStyles.legendItem}>
+            <div style={{...stackStyles.legendDot, backgroundColor: cat.color}} />
+            <span>{cat.label}</span>
+          </div>
+        ))}
+      </div>
+      
+      <div style={stackStyles.chart}>
+        {chartData.map((d, i) => (
+          <div key={i} style={stackStyles.row}>
+            <div style={stackStyles.label}>
+              <span style={stackStyles.flag}>{d.flag}</span>
+              <span style={stackStyles.country}>{d.country}</span>
+            </div>
+            <div style={stackStyles.barContainer}>
+              {categories.map(cat => (
+                <div
+                  key={cat.key}
+                  style={{
+                    ...stackStyles.segment,
+                    width: `${d[cat.key]}%`,
+                    backgroundColor: cat.color
+                  }}
+                  title={`${cat.label}: ${d[cat.key].toFixed(1)}%`}
+                />
+              ))}
+            </div>
+            <div style={stackStyles.total}>{formatNumber(d.total, 0)}億円</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const stackStyles = {
+  container: { backgroundColor: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', marginTop: 32 },
+  title: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: 0 },
+  subtitle: { fontSize: 14, color: '#6b7280', margin: '8px 0 24px' },
+  legend: { display: 'flex', gap: 20, marginBottom: 24, flexWrap: 'wrap' },
+  legendItem: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 },
+  legendDot: { width: 14, height: 14, borderRadius: 3 },
+  chart: { display: 'flex', flexDirection: 'column', gap: 12 },
+  row: { display: 'grid', gridTemplateColumns: '140px 1fr 90px', gap: 16, alignItems: 'center' },
+  label: { display: 'flex', alignItems: 'center', gap: 8 },
+  flag: { fontSize: 18 },
+  country: { fontSize: 14, fontWeight: 500 },
+  barContainer: { display: 'flex', height: 28, borderRadius: 4, overflow: 'hidden' },
+  segment: { height: '100%', transition: 'width 0.3s' },
+  total: { fontSize: 14, fontWeight: 600, textAlign: 'right', color: '#374151' }
+};
+
+// ============================================================
+// YoY 성장 워터폴 차트
+// ============================================================
+const GrowthWaterfall = ({ data, previousData }) => {
+  const waterfallData = useMemo(() => {
+    if (!data || !previousData || data.length < 2 || previousData.length < 2) return [];
+    
+    const current = data[0]; // 全国籍
+    const prev = previousData[0];
+    if (!current || !prev) return [];
+    
+    const categories = [
+      { key: 'accommodation', label: '宿泊' },
+      { key: 'food', label: '飲食' },
+      { key: 'shopping', label: '買物' },
+      { key: 'transport', label: '交通' },
+      { key: 'entertainment', label: '娯楽' },
+      { key: 'other', label: 'その他' }
+    ];
+    
+    return categories.map(cat => ({
+      label: cat.label,
+      current: current[cat.key] || 0,
+      previous: prev[cat.key] || 0,
+      diff: (current[cat.key] || 0) - (prev[cat.key] || 0),
+      growth: prev[cat.key] ? (((current[cat.key] || 0) - prev[cat.key]) / prev[cat.key]) * 100 : 0
+    }));
+  }, [data, previousData]);
+
+  if (waterfallData.length === 0) return null;
+
+  const maxDiff = Math.max(...waterfallData.map(d => Math.abs(d.diff)));
+
+  return (
+    <div style={waterfallStyles.container}>
+      <h3 style={waterfallStyles.title}>費目別増減</h3>
+      <p style={waterfallStyles.subtitle}>前年からの変化額</p>
+      
+      <div style={waterfallStyles.chart}>
+        {waterfallData.map((d, i) => (
+          <div key={i} style={waterfallStyles.row}>
+            <div style={waterfallStyles.label}>{d.label}</div>
+            <div style={waterfallStyles.barArea}>
+              <div style={waterfallStyles.barWrapper}>
+                {d.diff >= 0 ? (
+                  <>
+                    <div style={waterfallStyles.spacer} />
+                    <div style={{
+                      ...waterfallStyles.bar,
+                      width: `${(d.diff / maxDiff) * 45}%`,
+                      backgroundColor: '#059669'
+                    }} />
+                  </>
+                ) : (
+                  <>
+                    <div style={{
+                      ...waterfallStyles.bar,
+                      width: `${(Math.abs(d.diff) / maxDiff) * 45}%`,
+                      backgroundColor: '#dc2626',
+                      marginLeft: 'auto'
+                    }} />
+                    <div style={waterfallStyles.spacer} />
+                  </>
+                )}
+              </div>
+              <div style={waterfallStyles.centerLine} />
+            </div>
+            <div style={{
+              ...waterfallStyles.value,
+              color: d.diff >= 0 ? '#059669' : '#dc2626'
+            }}>
+              {d.diff >= 0 ? '+' : ''}{formatNumber(d.diff, 0)}億円
+            </div>
+            <div style={{
+              ...waterfallStyles.growth,
+              color: d.growth >= 0 ? '#059669' : '#dc2626'
+            }}>
+              ({d.growth >= 0 ? '+' : ''}{d.growth.toFixed(1)}%)
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const waterfallStyles = {
+  container: { backgroundColor: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', marginTop: 32 },
+  title: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: 0 },
+  subtitle: { fontSize: 14, color: '#6b7280', margin: '8px 0 24px' },
+  chart: { display: 'flex', flexDirection: 'column', gap: 16 },
+  row: { display: 'grid', gridTemplateColumns: '80px 1fr 120px 80px', gap: 16, alignItems: 'center' },
+  label: { fontSize: 14, fontWeight: 600, color: '#374151' },
+  barArea: { position: 'relative', height: 32 },
+  barWrapper: { display: 'flex', height: '100%', width: '100%' },
+  spacer: { width: '50%' },
+  bar: { height: '100%', borderRadius: 4, transition: 'width 0.3s' },
+  centerLine: { position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, backgroundColor: '#e5e7eb' },
+  value: { fontSize: 15, fontWeight: 700, textAlign: 'right' },
+  growth: { fontSize: 13, textAlign: 'right' }
+};
+
 export default function App() {
   const [year, setYear] = useState('2025');
   const [activeTab, setActiveTab] = useState('overview');
@@ -1490,6 +1921,10 @@ export default function App() {
                 <RegionComparison data={expenseData} previousData={previousExpenseData} />
                 <RankingAnalysis data={expenseData} previousData={previousExpenseData} />
                 <CategoryComparison data={expenseData} />
+                <CountryCompare data={expenseData} previousData={previousExpenseData} />
+                <MarketShareChart data={expenseData} />
+                <ExpenseStackChart data={expenseData} />
+                <GrowthWaterfall data={expenseData} previousData={previousExpenseData} />
               </>
             )}
           </>
