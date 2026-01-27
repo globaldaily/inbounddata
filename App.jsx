@@ -419,14 +419,18 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
   );
 };
 
-const TrendChart = ({ data, year, quarter, onSelect }) => {
+const TrendChart = ({ data, year, onYearSelect }) => {
   if (!data?.length) return null;
 
-  const currentLabel = `${year.slice(2)}/${quarter}`;
+  // 선택된 연도의 약자 (예: "2025" → "25")
+  const selectedYearShort = year.slice(2);
+
+  // 해당 연도의 막대인지 확인
+  const isSelectedYear = (label) => label?.startsWith(selectedYearShort + '/');
 
   // 막대 위에 금액 라벨 표시하는 커스텀 컴포넌트
   const CustomBarLabel = ({ x, y, width, value, index }) => {
-    const isSelected = data[index]?.label === currentLabel;
+    const isSelected = isSelectedYear(data[index]?.label);
     return (
       <text 
         x={x + width / 2} 
@@ -443,7 +447,7 @@ const TrendChart = ({ data, year, quarter, onSelect }) => {
 
   // 라인 위에 객단가 라벨 표시
   const CustomLineLabel = ({ x, y, value, index }) => {
-    const isSelected = data[index]?.label === currentLabel;
+    const isSelected = isSelectedYear(data[index]?.label);
     return (
       <text 
         x={x} 
@@ -514,9 +518,9 @@ const TrendChart = ({ data, year, quarter, onSelect }) => {
             radius={[2, 2, 0, 0]}
             label={<CustomBarLabel />}
             onClick={(data) => {
-              if (onSelect && data?.label) {
-                const [y, q] = data.label.split('/');
-                onSelect(`20${y}`, q);
+              if (onYearSelect && data?.label) {
+                const [y] = data.label.split('/');
+                onYearSelect(`20${y}`);
               }
             }}
             cursor="pointer"
@@ -524,10 +528,10 @@ const TrendChart = ({ data, year, quarter, onSelect }) => {
             {data.map((entry, index) => (
               <Cell 
                 key={`cell-${index}`} 
-                fill={entry.label === currentLabel ? '#2563eb' : '#4a90a4'} 
-                fillOpacity={entry.label === currentLabel ? 1 : 0.75}
-                stroke={entry.label === currentLabel ? '#1d4ed8' : 'none'}
-                strokeWidth={entry.label === currentLabel ? 2 : 0}
+                fill={isSelectedYear(entry.label) ? '#2563eb' : '#4a90a4'} 
+                fillOpacity={isSelectedYear(entry.label) ? 1 : 0.75}
+                stroke={isSelectedYear(entry.label) ? '#1d4ed8' : 'none'}
+                strokeWidth={isSelectedYear(entry.label) ? 2 : 0}
               />
             ))}
           </Bar>
@@ -543,20 +547,30 @@ const TrendChart = ({ data, year, quarter, onSelect }) => {
           />
         </ComposedChart>
       </ResponsiveContainer>
-      {/* 연도 구분선 - 각 연도 4개 분기 아래에 정확히 배치 */}
+      {/* 연도 구분선 - 클릭 가능하게 */}
       <div style={styles.yearLabelsContainer}>
-        <div style={styles.yearLabelGroup}>
-          <div style={styles.yearBracket}></div>
-          <span style={styles.yearLabel}>2023年</span>
-        </div>
-        <div style={styles.yearLabelGroup}>
-          <div style={styles.yearBracket}></div>
-          <span style={styles.yearLabel}>2024年</span>
-        </div>
-        <div style={styles.yearLabelGroup}>
-          <div style={styles.yearBracket}></div>
-          <span style={styles.yearLabel}>2025年</span>
-        </div>
+        {['2023', '2024', '2025'].map(y => (
+          <div 
+            key={y}
+            style={{
+              ...styles.yearLabelGroup,
+              cursor: 'pointer',
+              backgroundColor: year === y ? '#f0f7ff' : 'transparent',
+              borderRadius: 4
+            }}
+            onClick={() => onYearSelect(y)}
+          >
+            <div style={{
+              ...styles.yearBracket,
+              borderColor: year === y ? '#2563eb' : '#cbd5e0'
+            }}></div>
+            <span style={{
+              ...styles.yearLabel,
+              color: year === y ? '#2563eb' : '#4a5568',
+              fontWeight: year === y ? 700 : 600
+            }}>{y}年</span>
+          </div>
+        ))}
       </div>
       {/* 각주 */}
       <div style={styles.chartFootnote}>
@@ -687,7 +701,6 @@ const MatrixChart = ({ data, previousData }) => {
 
 export default function App() {
   const [year, setYear] = useState('2025');
-  const [quarter, setQuarter] = useState('Q1');
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -705,24 +718,24 @@ export default function App() {
       setLoading(true);
       setError(null);
       
-      // 년도/쿼터 변경 시 이전 데이터 초기화 (빈 화면 버그 방지)
+      // 년도 변경 시 이전 데이터 초기화
       setExpenseData([]);
       setPreviousExpenseData([]);
       setExpandedCountry(null);
       
       try {
-        // 1단계: 현재 년도 데이터 로드 (가장 중요)
+        // 연간 시트에서 데이터 로드 (API 2번만 호출!)
         await delay(100);
-        const expense = await fetchSheetData(`${year}_${quarter}_図表3`);
+        const expense = await fetchSheetData(`${year}_年間_図表3`);
         await delay(200);
-        const visitor = await fetchSheetData(`${year}_${quarter}_図表4`);
+        const visitor = await fetchSheetData(`${year}_年間_図表4`);
         
-        // 2단계: 전년도 데이터 로드
+        // 전년도 데이터 로드
         const prevYear = String(parseInt(year) - 1);
         await delay(200);
-        const prevExpense = await fetchSheetData(`${prevYear}_${quarter}_図表3`);
+        const prevExpense = await fetchSheetData(`${prevYear}_年間_図表3`);
         await delay(200);
-        const prevVisitor = await fetchSheetData(`${prevYear}_${quarter}_図表4`);
+        const prevVisitor = await fetchSheetData(`${prevYear}_年間_図表4`);
         
         const parseExpense = (rows) => {
           if (!rows || rows.length < 5) return [];
@@ -767,8 +780,16 @@ export default function App() {
         setExpenseData(merged);
         setPreviousExpenseData(mergedPrev);
         
-        // 년도/분기 변경 시 영업 데이터 초기화 (새로 로드 필요)
+        // 영업 데이터 초기화
         setSalesData({});
+        
+      } catch (err) {
+        console.error(err);
+        setError('データの読み込みに失敗しました');
+      } finally {
+        setLoading(false);
+      }
+    };
         
       } catch (err) {
         console.error(err);
@@ -779,7 +800,7 @@ export default function App() {
     };
     
     loadData();
-  }, [year, quarter]);
+  }, [year]);
 
   // 국가 확장 시 해당 국가의 영업(買物상세) 데이터 로드 - 최신 분기 (Q4) 기준
   const [loadingSales, setLoadingSales] = useState(false);
@@ -859,34 +880,20 @@ export default function App() {
         {/* 사분기별 추이 차트 - 항상 먼저 표시 */}
         <TrendChart 
           data={trendData} 
-          year={year} 
-          quarter={quarter}
-          onSelect={(newYear, newQuarter) => {
-            setYear(newYear);
-            setQuarter(newQuarter);
-          }}
+          year={year}
+          onYearSelect={setYear}
         />
 
-        {/* 년도/분기 선택 - 차트 아래 */}
+        {/* 년도 선택 - 차트 아래 */}
         <div style={styles.periodSelector}>
-          <span style={styles.periodLabel}>期間選択</span>
+          <span style={styles.periodLabel}>年度選択</span>
           <div style={styles.controls}>
             <select value={year} onChange={(e) => setYear(e.target.value)} style={styles.select}>
               <option value="2025">2025年</option>
               <option value="2024">2024年</option>
               <option value="2023">2023年</option>
             </select>
-            <div style={styles.quarterGroup}>
-              {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
-                <button
-                  key={q}
-                  onClick={() => setQuarter(q)}
-                  style={{ ...styles.quarterBtn, ...(quarter === q ? styles.quarterActive : {}) }}
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
+            <span style={styles.periodNote}>※ 選択年度の年間（Q1〜Q4合計）データを表示</span>
           </div>
         </div>
 
@@ -995,6 +1002,11 @@ const styles = {
     fontWeight: 600,
     color: '#4a5568'
   },
+  periodNote: {
+    fontSize: 12,
+    color: '#718096',
+    marginLeft: 8
+  },
   controls: {
     display: 'flex',
     alignItems: 'center',
@@ -1008,26 +1020,6 @@ const styles = {
     borderRadius: 4,
     backgroundColor: '#fff',
     cursor: 'pointer'
-  },
-  quarterGroup: {
-    display: 'flex',
-    gap: 4
-  },
-  quarterBtn: {
-    padding: '10px 18px',
-    fontSize: 13,
-    fontWeight: 500,
-    border: '1px solid #e2e8f0',
-    borderRadius: 4,
-    backgroundColor: '#fff',
-    color: '#4a5568',
-    cursor: 'pointer',
-    transition: 'all 0.15s'
-  },
-  quarterActive: {
-    backgroundColor: '#1a1a1a',
-    borderColor: '#1a1a1a',
-    color: '#fff'
   },
   insightBar: {
     maxWidth: 1080,
