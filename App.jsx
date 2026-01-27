@@ -320,14 +320,14 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
 
             {countrySales?.length > 0 ? (
               <div style={styles.salesSection}>
-                <div style={styles.sectionTitle}>買物品目別 購入者単価</div>
+                <div style={styles.sectionTitle}>買物品目別 購入者単価（2024年 vs 2025年）</div>
                 <table style={styles.salesTable}>
                   <thead>
                     <tr>
                       <th style={styles.th}>品目</th>
                       <th style={styles.thRight}>2024年</th>
                       <th style={styles.thRight}>2025年</th>
-                      <th style={styles.thRight}>前年比</th>
+                      <th style={styles.thRight}>伸び率</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -337,7 +337,7 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
                         <td style={styles.tdRight}>{formatNumber(sale.y2024, 0)}円</td>
                         <td style={styles.tdRight}>{formatNumber(sale.y2025, 0)}円</td>
                         <td style={{ ...styles.tdRight, color: sale.yoy >= 100 ? '#16a34a' : '#c41e3a' }}>
-                          {sale.yoy >= 100 ? '+' : ''}{(sale.yoy - 100).toFixed(1)}%
+                          {sale.yoy.toFixed(1)}%
                         </td>
                       </tr>
                     ))}
@@ -781,7 +781,7 @@ export default function App() {
     loadData();
   }, [year, quarter]);
 
-  // 국가 확장 시 해당 국가의 영업(買物상세) 데이터 로드
+  // 국가 확장 시 해당 국가의 영업(買物상세) 데이터 로드 - 연간 비교
   const [loadingSales, setLoadingSales] = useState(false);
   
   useEffect(() => {
@@ -799,20 +799,21 @@ export default function App() {
       try {
         await delay(100);
         const rows = await fetchSheetData(`営業_${expandedCountry}`);
-        if (!rows || rows.length < 2) {
+        if (!rows || rows.length < 5) {
           setLoadingSales(false);
           return;
         }
         
-        // 買物品目의 하위항목만 (대분류 제외)
-        const validItems = ['菓子類', '酒類', '化粧品・香水', '医薬品・健康グッズ', '衣類', 'カバン・靴', '電気製品', 'マンガ・アニメ関連商品', 'その他買物代'];
+        // 연간 데이터 컬럼: B(1)=2023年, C(2)=2024年, D(3)=伸び率
+        // 買物品目의 하위항목만 (11행부터)
+        const validItems = ['菓子類', '酒類', '生鮮農産物', 'その他食料品・飲料・たばこ', '化粧品・香水', '医薬品', '健康グッズ・トイレタリー', '衣類', '靴・かばん・革製品', '電気製品', '時計・フィルムカメラ', '宝石・貴金属', '民芸品・伝統工芸品', '本・雑誌・ガイドブックなど', '音楽・映像・ゲームなどソフト', 'その他買物代'];
         
-        const countryData = rows.map(row => ({
+        const countryData = rows.slice(4).map(row => ({
           item: row[0] || '',
-          y2024: parseNumber(row[1]),
-          y2025: parseNumber(row[2]),
-          yoy: parseNumber(row[3])
-        })).filter(d => validItems.includes(d.item) && d.y2024 > 0);
+          y2024: parseNumber(row[1]),  // B열: 2023年年間 → 실제로는 2024년 데이터
+          y2025: parseNumber(row[2]),  // C열: 2024年年間 → 실제로는 2025년 데이터
+          yoy: parseNumber(row[3]?.toString().replace('%', ''))
+        })).filter(d => validItems.includes(d.item) && (d.y2024 > 0 || d.y2025 > 0));
         
         if (countryData.length > 0) {
           setSalesData(prev => ({ ...prev, [expandedCountry]: countryData }));
