@@ -1226,13 +1226,21 @@ const matrixStyles = {
 // 국가 vs 국가 비교 컴포넌트
 // ============================================================
 const CountryCompare = ({ data, previousData }) => {
-  const [country1, setCountry1] = useState('中国');
-  const [country2, setCountry2] = useState('韓国');
+  const [country1, setCountry1] = useState('');
+  const [country2, setCountry2] = useState('');
   
   const countries = useMemo(() => {
     if (!data) return [];
     return data.filter(d => d.country !== '全国籍・地域' && d.country !== 'その他').map(d => d.country);
   }, [data]);
+
+  // 초기값 설정
+  useEffect(() => {
+    if (countries.length >= 2 && !country1 && !country2) {
+      setCountry1(countries[0]);
+      setCountry2(countries[1]);
+    }
+  }, [countries, country1, country2]);
 
   const getData = (countryName) => {
     const current = data?.find(d => d.country === countryName);
@@ -1263,6 +1271,7 @@ const CountryCompare = ({ data, previousData }) => {
     { label: '平均泊数', key: 'avgNights', unit: '泊', format: v => v?.toFixed(1) || '—' },
   ];
 
+  if (!data || data.length < 2) return null;
   if (!d1 || !d2) return null;
 
   return (
