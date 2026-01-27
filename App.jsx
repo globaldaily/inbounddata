@@ -1084,71 +1084,142 @@ const MatrixChart = ({ data, previousData }) => {
     };
   }).filter(d => d.total > 100 && d.perPerson > 0);
 
-  // 전년 데이터가 없는 경우 안내
   const hasPrevData = previousData?.length > 0;
 
+  // 평균값 계산
+  const avgGrowth = chartData.reduce((s, d) => s + d.growth, 0) / chartData.length;
+  const avgPerPerson = chartData.reduce((s, d) => s + d.perPerson, 0) / chartData.length;
+
   return (
-    <div style={styles.chartBox}>
-      <h3 style={styles.chartTitle}>成長率 × 客単価</h3>
+    <div style={matrixStyles.container}>
+      <div style={matrixStyles.header}>
+        <h3 style={matrixStyles.title}>ポジショニングマップ</h3>
+        <p style={matrixStyles.subtitle}>成長率 × 客単価で各国の特性を把握</p>
+      </div>
+      
+      {/* 4사분면 설명 */}
+      <div style={matrixStyles.quadrantGuide}>
+        <div style={matrixStyles.quadrant}>
+          <div style={matrixStyles.quadrantLabel}>高成長・高単価</div>
+          <div style={matrixStyles.quadrantDesc}>プレミアム成長市場</div>
+        </div>
+        <div style={matrixStyles.quadrant}>
+          <div style={matrixStyles.quadrantLabel}>低成長・高単価</div>
+          <div style={matrixStyles.quadrantDesc}>成熟プレミアム市場</div>
+        </div>
+        <div style={matrixStyles.quadrant}>
+          <div style={matrixStyles.quadrantLabel}>高成長・低単価</div>
+          <div style={matrixStyles.quadrantDesc}>ボリューム成長市場</div>
+        </div>
+        <div style={matrixStyles.quadrant}>
+          <div style={matrixStyles.quadrantLabel}>低成長・低単価</div>
+          <div style={matrixStyles.quadrantDesc}>要検討市場</div>
+        </div>
+      </div>
+
       {!hasPrevData && (
-        <div style={styles.noDataNote}>※ 前年データがないため、成長率は0%で表示されます</div>
+        <div style={matrixStyles.noDataNote}>※ 前年データがないため、成長率は0%で表示</div>
       )}
-      {chartData.length === 0 ? (
-        <div style={styles.noDataMessage}>データがありません</div>
-      ) : (
-        <ResponsiveContainer width="100%" height={380}>
-          <ScatterChart margin={{ top: 20, right: 20, bottom: 40, left: 40 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis 
-              type="number" 
-              dataKey="growth" 
-              name="成長率" 
-              unit="%"
-              tick={{ fontSize: 11, fill: '#4a5568' }}
-              label={{ value: '成長率（%）', position: 'bottom', offset: 20, fontSize: 11, fill: '#4a5568' }}
-            />
-            <YAxis 
-              type="number" 
-              dataKey="perPerson" 
-              name="客単価" 
-              unit="万円"
-              tick={{ fontSize: 11, fill: '#4a5568' }}
-              label={{ value: '客単価（万円）', angle: -90, position: 'left', offset: 10, fontSize: 11, fill: '#4a5568' }}
-            />
-            <ZAxis type="number" dataKey="total" range={[60, 600]} />
-            <Tooltip 
-              content={({ payload }) => {
-                if (!payload?.[0]) return null;
-                const d = payload[0].payload;
-                const flag = COUNTRY_FLAGS[d.country] || '🌐';
-                return (
-                  <div style={styles.tooltip}>
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>{flag} {d.country}</div>
-                    <div>成長率: {d.hasPrevData ? (d.growth >= 0 ? '+' : '') + d.growth.toFixed(1) + '%' : 'データなし'}</div>
-                    <div>客単価: {d.perPerson.toFixed(1)}万円</div>
-                    <div>消費額: {formatNumber(d.total)}億円</div>
-                  </div>
-                );
-              }}
-            />
-            <Scatter data={chartData}>
-              {chartData.map((entry, i) => (
-                <Cell key={i} fill={REGION_COLORS[entry.region] || '#a0aec0'} />
-              ))}
-            </Scatter>
-          </ScatterChart>
-        </ResponsiveContainer>
-      )}
-      <div style={styles.legendRow}>
+      
+      <div style={matrixStyles.chartWrapper}>
+        {chartData.length === 0 ? (
+          <div style={matrixStyles.noData}>データがありません</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={450}>
+            <ScatterChart margin={{ top: 30, right: 30, bottom: 50, left: 50 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              {/* 평균선 표시 */}
+              <XAxis 
+                type="number" 
+                dataKey="growth" 
+                name="成長率" 
+                unit="%"
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+                axisLine={{ stroke: '#9ca3af' }}
+                label={{ value: '成長率（前年比）', position: 'bottom', offset: 30, fontSize: 13, fill: '#374151', fontWeight: 600 }}
+              />
+              <YAxis 
+                type="number" 
+                dataKey="perPerson" 
+                name="客単価" 
+                unit="万円"
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+                axisLine={{ stroke: '#9ca3af' }}
+                label={{ value: '客単価（万円）', angle: -90, position: 'left', offset: 25, fontSize: 13, fill: '#374151', fontWeight: 600 }}
+              />
+              <ZAxis type="number" dataKey="total" range={[80, 800]} />
+              <Tooltip 
+                content={({ payload }) => {
+                  if (!payload?.[0]) return null;
+                  const d = payload[0].payload;
+                  const flag = COUNTRY_FLAGS[d.country] || '🌐';
+                  return (
+                    <div style={matrixStyles.tooltip}>
+                      <div style={matrixStyles.tooltipTitle}>{flag} {d.country}</div>
+                      <div style={matrixStyles.tooltipRow}>
+                        <span>成長率</span>
+                        <span style={{ color: d.growth >= 0 ? '#059669' : '#dc2626', fontWeight: 700 }}>
+                          {d.hasPrevData ? (d.growth >= 0 ? '+' : '') + d.growth.toFixed(1) + '%' : 'N/A'}
+                        </span>
+                      </div>
+                      <div style={matrixStyles.tooltipRow}>
+                        <span>客単価</span>
+                        <span style={{ fontWeight: 700 }}>{d.perPerson.toFixed(1)}万円</span>
+                      </div>
+                      <div style={matrixStyles.tooltipRow}>
+                        <span>消費額</span>
+                        <span style={{ fontWeight: 700 }}>{formatNumber(d.total, 0)}億円</span>
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+              <Scatter data={chartData}>
+                {chartData.map((entry, i) => (
+                  <Cell key={i} fill={REGION_COLORS[entry.region] || '#9ca3af'} fillOpacity={0.85} />
+                ))}
+              </Scatter>
+            </ScatterChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+      
+      <div style={matrixStyles.legend}>
         {Object.entries(REGION_COLORS).map(([region, color]) => (
-          <div key={region} style={styles.legendItem}>
-            <span style={{ ...styles.legendDot, backgroundColor: color }} />
-            <span>{region}</span>
+          <div key={region} style={matrixStyles.legendItem}>
+            <span style={{ ...matrixStyles.legendDot, backgroundColor: color }} />
+            <span style={matrixStyles.legendText}>{region}</span>
           </div>
         ))}
       </div>
+      
+      <div style={matrixStyles.note}>
+        ※ バブルの大きさは消費額の規模を表します
+      </div>
     </div>
   );
+};
+
+const matrixStyles = {
+  container: { backgroundColor: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb' },
+  header: { marginBottom: 24 },
+  title: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: 0 },
+  subtitle: { fontSize: 14, color: '#6b7280', margin: '8px 0 0' },
+  quadrantGuide: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24, padding: 16, backgroundColor: '#f9fafb', borderRadius: 8 },
+  quadrant: { padding: 12 },
+  quadrantLabel: { fontSize: 13, fontWeight: 600, color: '#374151' },
+  quadrantDesc: { fontSize: 12, color: '#6b7280', marginTop: 2 },
+  noDataNote: { fontSize: 13, color: '#f59e0b', backgroundColor: '#fffbeb', padding: '12px 16px', borderRadius: 6, marginBottom: 16 },
+  chartWrapper: { },
+  noData: { textAlign: 'center', padding: 60, color: '#9ca3af' },
+  tooltip: { backgroundColor: '#1a1a1a', color: '#fff', padding: 16, borderRadius: 8, fontSize: 13, minWidth: 160 },
+  tooltipTitle: { fontSize: 15, fontWeight: 700, marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.2)' },
+  tooltipRow: { display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 6 },
+  legend: { display: 'flex', justifyContent: 'center', gap: 24, marginTop: 20, paddingTop: 20, borderTop: '1px solid #e5e7eb' },
+  legendItem: { display: 'flex', alignItems: 'center', gap: 8 },
+  legendDot: { width: 12, height: 12, borderRadius: '50%' },
+  legendText: { fontSize: 13, color: '#4b5563' },
+  note: { textAlign: 'center', fontSize: 12, color: '#9ca3af', marginTop: 16 }
 };
 
 export default function App() {
@@ -1341,17 +1412,27 @@ export default function App() {
           onYearSelect={setYear}
         />
 
-        {/* 년도 선택 - 차트 아래 */}
-        <div style={styles.periodSelector}>
-          <span style={styles.periodLabel}>年度選択</span>
-          <div style={styles.controls}>
-            <select value={year} onChange={(e) => setYear(e.target.value)} style={styles.select}>
-              <option value="2025">2025年</option>
-              <option value="2024">2024年</option>
-              <option value="2023">2023年</option>
-            </select>
-            <span style={styles.periodNote}>※ 選択年度の年間（Q1〜Q4合計）データを表示</span>
+        {/* 년도 선택 - 임팩트 있게 */}
+        <div style={styles.yearSelector}>
+          <div style={styles.yearDisplay}>
+            <span style={styles.yearBig}>{year}</span>
+            <span style={styles.yearUnit}>年</span>
           </div>
+          <div style={styles.yearButtons}>
+            {['2025', '2024', '2023'].map(y => (
+              <button
+                key={y}
+                onClick={() => setYear(y)}
+                style={{
+                  ...styles.yearBtn,
+                  ...(year === y ? styles.yearBtnActive : {})
+                }}
+              >
+                {y}
+              </button>
+            ))}
+          </div>
+          <div style={styles.yearNote}>年間データ（Q1〜Q4合計）</div>
         </div>
 
         <InsightsSummary data={expenseData} previousData={previousExpenseData} loading={loading} />
@@ -1463,6 +1544,59 @@ const styles = {
     border: '1px solid #e5e7eb',
     borderRadius: 8,
     boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+  },
+  yearSelector: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '32px 24px',
+    marginTop: 24,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    color: '#fff'
+  },
+  yearDisplay: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: 4,
+    marginBottom: 16
+  },
+  yearBig: {
+    fontSize: 72,
+    fontWeight: 900,
+    letterSpacing: '-0.03em',
+    lineHeight: 1
+  },
+  yearUnit: {
+    fontSize: 28,
+    fontWeight: 600,
+    opacity: 0.7
+  },
+  yearButtons: {
+    display: 'flex',
+    gap: 8,
+    marginBottom: 12
+  },
+  yearBtn: {
+    padding: '10px 20px',
+    fontSize: 15,
+    fontWeight: 600,
+    border: '2px solid rgba(255,255,255,0.3)',
+    borderRadius: 6,
+    backgroundColor: 'transparent',
+    color: 'rgba(255,255,255,0.7)',
+    cursor: 'pointer',
+    transition: 'all 0.2s'
+  },
+  yearBtnActive: {
+    backgroundColor: '#fff',
+    color: '#1a1a1a',
+    borderColor: '#fff'
+  },
+  yearNote: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: 4
   },
   periodLabel: {
     fontSize: 14,
