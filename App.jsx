@@ -223,7 +223,7 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
   const INITIAL_COUNT = 5;
   
   // 영업 시트가 있는 국가 목록
-  const salesCountries = ['韓国', '中国', '台湾', '香港', '米国', 'タイ', 'ベトナム', 'オーストラリア', 'シンガポール'];
+  const salesCountries = ['韓国', '中国', '台湾', '香港', '米国', 'タイ', 'ベトナム', 'オーストラリア', 'シンガポール', 'マレーシア', 'インドネシア', 'フィリピン', 'インド', '英国', 'ドイツ', 'フランス', 'イタリア', 'スペイン', 'ロシア', 'カナダ'];
 
   const groupedByRegion = useMemo(() => {
     if (!data?.length) return {};
@@ -320,7 +320,7 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
 
             {countrySales?.length > 0 ? (
               <div style={styles.salesSection}>
-                <div style={styles.sectionTitle}>買物品目別 購入者単価（2024年 vs 2025年）</div>
+                <div style={styles.sectionTitle}>買物品目別 購入者単価（10〜12月）</div>
                 <table style={styles.salesTable}>
                   <thead>
                     <tr>
@@ -781,7 +781,7 @@ export default function App() {
     loadData();
   }, [year, quarter]);
 
-  // 국가 확장 시 해당 국가의 영업(買物상세) 데이터 로드 - 연간 비교
+  // 국가 확장 시 해당 국가의 영업(買物상세) 데이터 로드 - 최신 분기 (Q4) 기준
   const [loadingSales, setLoadingSales] = useState(false);
   
   useEffect(() => {
@@ -792,7 +792,7 @@ export default function App() {
       if (salesData[expandedCountry]) return;
       
       // 영업 시트가 있는 국가 목록
-      const salesCountries = ['韓国', '中国', '台湾', '香港', '米国', 'タイ', 'ベトナム', 'オーストラリア', 'シンガポール'];
+      const salesCountries = ['韓国', '中国', '台湾', '香港', '米国', 'タイ', 'ベトナム', 'オーストラリア', 'シンガポール', 'マレーシア', 'インドネシア', 'フィリピン', 'インド', '英国', 'ドイツ', 'フランス', 'イタリア', 'スペイン', 'ロシア', 'カナダ'];
       if (!salesCountries.includes(expandedCountry)) return;
       
       setLoadingSales(true);
@@ -804,15 +804,15 @@ export default function App() {
           return;
         }
         
-        // 연간 데이터 컬럼: B(1)=2023年, C(2)=2024年, D(3)=伸び率
+        // Q4 (최신 분기) 데이터: N(13)=2024年10-12月, O(14)=2025年10-12月, P(15)=伸び率
         // 買物品目의 하위항목만 (11행부터)
         const validItems = ['菓子類', '酒類', '生鮮農産物', 'その他食料品・飲料・たばこ', '化粧品・香水', '医薬品', '健康グッズ・トイレタリー', '衣類', '靴・かばん・革製品', '電気製品', '時計・フィルムカメラ', '宝石・貴金属', '民芸品・伝統工芸品', '本・雑誌・ガイドブックなど', '音楽・映像・ゲームなどソフト', 'その他買物代'];
         
         const countryData = rows.slice(4).map(row => ({
           item: row[0] || '',
-          y2024: parseNumber(row[1]),  // B열: 2023年年間 → 실제로는 2024년 데이터
-          y2025: parseNumber(row[2]),  // C열: 2024年年間 → 실제로는 2025년 데이터
-          yoy: parseNumber(row[3]?.toString().replace('%', ''))
+          y2024: parseNumber(row[13]),  // N열: 2024年10-12月
+          y2025: parseNumber(row[14]),  // O열: 2025年10-12月
+          yoy: parseNumber(row[15]?.toString().replace('%', ''))  // P열: 伸び率
         })).filter(d => validItems.includes(d.item) && (d.y2024 > 0 || d.y2025 > 0));
         
         if (countryData.length > 0) {
