@@ -74,7 +74,7 @@ const TREND_DATA = [
 
 const parseNumber = (str) => {
   if (!str) return 0;
-  const cleaned = String(str).replace(/,/g, '').replace(/円/g, '').replace(/泊/g, '').replace(/人/g, '').trim();
+  const cleaned = String(str).replace(/,/g, '').replace(/円/g, '').replace(/泊/g, '').replace(/人/g, '').replace(/%/g, '').trim();
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : num;
 };
@@ -821,12 +821,20 @@ export default function App() {
         // 買物品目의 하위항목만 (11행부터)
         const validItems = ['菓子類', '酒類', '生鮮農産物', 'その他食料品・飲料・たばこ', '化粧品・香水', '医薬品', '健康グッズ・トイレタリー', '衣類', '靴・かばん・革製品', '電気製品', '時計・フィルムカメラ', '宝石・貴金属', '民芸品・伝統工芸品', '本・雑誌・ガイドブックなど', '音楽・映像・ゲームなどソフト', 'その他買物代'];
         
-        const countryData = rows.slice(4).map(row => ({
-          item: row[0] || '',
-          y2023: parseNumber(row[1]),  // B열: 2023年年間
-          y2024: parseNumber(row[2]),  // C열: 2024年年間
-          yoy: parseNumber(row[3])     // D열: 伸び率 (0.932 = 93.2%)
-        })).filter(d => validItems.includes(d.item) && (d.y2023 > 0 || d.y2024 > 0));
+        const countryData = rows.slice(4).map(row => {
+          const yoyRaw = row[3];
+          // Google Sheets가 "93.2%"로 반환하면 93.2, 0.932로 반환하면 0.932
+          let yoyValue = parseNumber(yoyRaw);
+          // 1보다 크면 이미 %로 변환된 값 (93.2), 아니면 소수점 (0.932)
+          if (yoyValue > 10) yoyValue = yoyValue / 100;  // 93.2 → 0.932
+          
+          return {
+            item: row[0] || '',
+            y2023: parseNumber(row[1]),  // B열: 2023年年間
+            y2024: parseNumber(row[2]),  // C열: 2024年年間
+            yoy: yoyValue
+          };
+        }).filter(d => validItems.includes(d.item) && (d.y2023 > 0 || d.y2024 > 0));
         
         if (countryData.length > 0) {
           setSalesData(prev => ({ ...prev, [expandedCountry]: countryData }));
