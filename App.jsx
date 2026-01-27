@@ -1875,8 +1875,6 @@ export default function App() {
           <div style={styles.yearNote}>年間データ（Q1〜Q4合計）</div>
         </div>
 
-        <InsightsSummary data={expenseData} previousData={previousExpenseData} loading={loading} />
-
         <nav style={styles.tabs}>
           {[
             { id: 'overview', label: '国別データ' },
@@ -1930,6 +1928,14 @@ export default function App() {
                 <RegionComparison data={expenseData} previousData={previousExpenseData} />
                 <RankingAnalysis data={expenseData} previousData={previousExpenseData} />
                 <CategoryComparison data={expenseData} />
+                
+                {/* 디버깅: 데이터 확인 */}
+                <div style={{padding: 20, background: '#ffe', margin: '20px 0', border: '2px solid #f90'}}>
+                  <strong>デバッグ情報:</strong><br/>
+                  データ数: {expenseData?.length || 0}件<br/>
+                  前年データ数: {previousExpenseData?.length || 0}件
+                </div>
+                
                 <CountryCompare data={expenseData} previousData={previousExpenseData} />
                 <MarketShareChart data={expenseData} />
                 <ExpenseStackChart data={expenseData} />
