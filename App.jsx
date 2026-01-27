@@ -327,7 +327,7 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
                       <th style={styles.th}>品目</th>
                       <th style={styles.thRight}>2024年</th>
                       <th style={styles.thRight}>2025年</th>
-                      <th style={styles.thRight}>伸び率</th>
+                      <th style={styles.thRight}>前年比</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -336,8 +336,8 @@ const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, 
                         <td style={styles.td}>{sale.item}</td>
                         <td style={styles.tdRight}>{formatNumber(sale.y2024, 0)}円</td>
                         <td style={styles.tdRight}>{formatNumber(sale.y2025, 0)}円</td>
-                        <td style={{ ...styles.tdRight, color: sale.yoy >= 100 ? '#16a34a' : '#c41e3a' }}>
-                          {sale.yoy.toFixed(1)}%
+                        <td style={{ ...styles.tdRight, color: sale.yoy >= 1 ? '#16a34a' : '#c41e3a' }}>
+                          {(sale.yoy * 100).toFixed(1)}%
                         </td>
                       </tr>
                     ))}
