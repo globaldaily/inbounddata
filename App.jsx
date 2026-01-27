@@ -822,11 +822,16 @@ export default function App() {
         const validItems = ['菓子類', '酒類', '生鮮農産物', 'その他食料品・飲料・たばこ', '化粧品・香水', '医薬品', '健康グッズ・トイレタリー', '衣類', '靴・かばん・革製品', '電気製品', '時計・フィルムカメラ', '宝石・貴金属', '民芸品・伝統工芸品', '本・雑誌・ガイドブックなど', '音楽・映像・ゲームなどソフト', 'その他買物代'];
         
         const countryData = rows.slice(4).map(row => {
-          const yoyRaw = row[3];
-          // Google Sheets가 "93.2%"로 반환하면 93.2, 0.932로 반환하면 0.932
-          let yoyValue = parseNumber(yoyRaw);
-          // 1보다 크면 이미 %로 변환된 값 (93.2), 아니면 소수점 (0.932)
-          if (yoyValue > 10) yoyValue = yoyValue / 100;  // 93.2 → 0.932
+          const yoyRaw = String(row[3] || '');
+          let yoyValue;
+          
+          // "%"가 포함되어 있으면 이미 퍼센트 값 (예: "93.2%" → 0.932)
+          if (yoyRaw.includes('%')) {
+            yoyValue = parseFloat(yoyRaw.replace('%', '')) / 100;
+          } else {
+            // 숫자만 있으면 그대로 사용 (예: 0.932)
+            yoyValue = parseNumber(yoyRaw);
+          }
           
           return {
             item: row[0] || '',
