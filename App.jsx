@@ -943,7 +943,7 @@ export default function App() {
 
       <footer style={styles.footer}>
         <span>出典：観光庁「訪日外国人消費動向調査」</span>
-        <span>{year}年 {quarter}</span>
+        <span>{year}年 年間</span>
       </footer>
     </div>
   );
