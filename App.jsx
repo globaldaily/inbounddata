@@ -140,18 +140,22 @@ const RankingAnalysis = ({ data, previousData }) => {
 
   if (!analysis) return null;
 
-  const RankingCard = ({ title, icon, items, valueKey, format, suffix = '', highlight = false }) => (
+  const RankingCard = ({ title, items, valueKey, format, suffix = '', highlight = false }) => (
     <div style={rankStyles.card}>
-      <div style={rankStyles.cardTitle}>{icon} {title}</div>
+      <div style={rankStyles.cardTitle}>{title}</div>
       <div style={rankStyles.rankList}>
         {items.map((item, idx) => (
           <div key={item.country} style={rankStyles.rankItem}>
-            <span style={rankStyles.rankNum}>{idx + 1}</span>
+            <span style={{
+              ...rankStyles.rankNum,
+              backgroundColor: idx === 0 ? '#1a1a1a' : idx === 1 ? '#4a5568' : idx === 2 ? '#718096' : '#e2e8f0',
+              color: idx < 3 ? '#fff' : '#64748b'
+            }}>{idx + 1}</span>
             <span style={rankStyles.flag}>{COUNTRY_FLAGS[item.country] || '🌐'}</span>
             <span style={rankStyles.countryName}>{item.country}</span>
             <span style={{
               ...rankStyles.value,
-              color: highlight && item[valueKey] < 0 ? '#c41e3a' : highlight && item[valueKey] > 0 ? '#16a34a' : '#1a1a1a'
+              color: highlight && item[valueKey] < 0 ? '#dc2626' : highlight && item[valueKey] > 0 ? '#059669' : '#1a1a1a'
             }}>
               {highlight && item[valueKey] > 0 ? '+' : ''}{format(item[valueKey])}{suffix}
             </span>
@@ -163,35 +167,31 @@ const RankingAnalysis = ({ data, previousData }) => {
 
   return (
     <div style={rankStyles.container}>
-      <h3 style={rankStyles.sectionTitle}>📊 国別ランキング分析</h3>
+      <h3 style={rankStyles.sectionTitle}>国別ランキング</h3>
       <div style={rankStyles.grid}>
         <RankingCard 
-          title="消費額 TOP5" 
-          icon="💰" 
+          title="消費額" 
           items={analysis.byTotal} 
           valueKey="total" 
           format={v => formatNumber(v, 0)} 
           suffix="億円" 
         />
         <RankingCard 
-          title="客単価 TOP5" 
-          icon="👤" 
+          title="客単価" 
           items={analysis.byPerPerson} 
           valueKey="perPerson" 
           format={v => formatNumber(v / 10000, 1)} 
           suffix="万円" 
         />
         <RankingCard 
-          title="訪日客数 TOP5" 
-          icon="✈️" 
+          title="訪日客数" 
           items={analysis.byVisitors} 
           valueKey="visitors" 
           format={v => formatNumber(v / 10000, 0)} 
           suffix="万人" 
         />
         <RankingCard 
-          title="成長率 TOP5" 
-          icon="📈" 
+          title="成長率" 
           items={analysis.byGrowth} 
           valueKey="growth" 
           format={v => v.toFixed(1)} 
@@ -199,16 +199,14 @@ const RankingAnalysis = ({ data, previousData }) => {
           highlight 
         />
         <RankingCard 
-          title="買物比率 TOP5" 
-          icon="🛍️" 
+          title="買物比率" 
           items={analysis.byShoppingRatio} 
           valueKey="shopRatio" 
           format={v => v.toFixed(1)} 
           suffix="%" 
         />
         <RankingCard 
-          title="平均泊数 TOP5" 
-          icon="🏨" 
+          title="平均泊数" 
           items={analysis.byNights} 
           valueKey="avgNights" 
           format={v => v.toFixed(1)} 
@@ -220,21 +218,21 @@ const RankingAnalysis = ({ data, previousData }) => {
 };
 
 const rankStyles = {
-  container: { marginTop: 24 },
-  sectionTitle: { fontSize: 16, fontWeight: 700, marginBottom: 16, color: '#1a1a1a' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e2e8f0' },
-  cardTitle: { fontSize: 14, fontWeight: 600, marginBottom: 12, color: '#4a5568' },
-  rankList: { display: 'flex', flexDirection: 'column', gap: 8 },
-  rankItem: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 },
-  rankNum: { width: 20, height: 20, borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#64748b' },
-  flag: { fontSize: 16 },
-  countryName: { flex: 1, color: '#1a1a1a' },
-  value: { fontWeight: 600, fontFamily: 'monospace' }
+  container: { marginTop: 32 },
+  sectionTitle: { fontSize: 18, fontWeight: 700, marginBottom: 20, color: '#1a1a1a', borderBottom: '2px solid #1a1a1a', paddingBottom: 8, display: 'inline-block' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 },
+  card: { backgroundColor: '#fff', borderRadius: 8, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb' },
+  cardTitle: { fontSize: 15, fontWeight: 600, marginBottom: 16, color: '#374151', letterSpacing: '0.02em' },
+  rankList: { display: 'flex', flexDirection: 'column', gap: 10 },
+  rankItem: { display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 },
+  rankNum: { width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 },
+  flag: { fontSize: 18 },
+  countryName: { flex: 1, color: '#1a1a1a', fontWeight: 500 },
+  value: { fontWeight: 700, fontFamily: '"Inter", "Helvetica Neue", sans-serif', fontSize: 14 }
 };
 
 // ============================================================
-// 📊 지역별 비교 컴포넌트
+// 地域別 비교 컴포넌트
 // ============================================================
 const RegionComparison = ({ data, previousData }) => {
   const regionData = useMemo(() => {
@@ -258,7 +256,7 @@ const RegionComparison = ({ data, previousData }) => {
         visitors,
         shopping,
         shopRatio: total ? (shopping / total) * 100 : 0,
-        perPerson: visitors ? total / visitors * 100000000 : 0, // 억엔→엔 변환
+        perPerson: visitors ? total / visitors * 100000000 : 0,
         growth,
         color: REGION_COLORS[region]
       };
@@ -268,16 +266,20 @@ const RegionComparison = ({ data, previousData }) => {
   if (regionData.length === 0) return null;
 
   const maxTotal = Math.max(...regionData.map(r => r.total));
+  const totalAll = regionData.reduce((s, r) => s + r.total, 0);
 
   return (
     <div style={regionStyles.container}>
-      <h3 style={regionStyles.sectionTitle}>🌍 地域別消費比較</h3>
+      <h3 style={regionStyles.sectionTitle}>地域別消費構成</h3>
       <div style={regionStyles.grid}>
         {regionData.map(r => (
           <div key={r.region} style={regionStyles.card}>
             <div style={regionStyles.header}>
-              <span style={{ ...regionStyles.regionDot, backgroundColor: r.color }} />
-              <span style={regionStyles.regionName}>{r.region}</span>
+              <div style={{ ...regionStyles.regionIndicator, backgroundColor: r.color }} />
+              <div>
+                <div style={regionStyles.regionName}>{r.region}</div>
+                <div style={regionStyles.share}>シェア {((r.total / totalAll) * 100).toFixed(1)}%</div>
+              </div>
             </div>
             <div style={regionStyles.mainValue}>
               {formatNumber(r.total, 0)}<span style={regionStyles.unit}>億円</span>
@@ -285,24 +287,24 @@ const RegionComparison = ({ data, previousData }) => {
             <div style={regionStyles.bar}>
               <div style={{ ...regionStyles.barFill, width: `${(r.total / maxTotal) * 100}%`, backgroundColor: r.color }} />
             </div>
-            <div style={regionStyles.stats}>
-              <div style={regionStyles.stat}>
-                <span style={regionStyles.statLabel}>訪日客数</span>
-                <span style={regionStyles.statValue}>{formatNumber(r.visitors / 10000, 0)}万人</span>
+            <div style={regionStyles.statsGrid}>
+              <div style={regionStyles.statItem}>
+                <div style={regionStyles.statLabel}>訪日客数</div>
+                <div style={regionStyles.statValue}>{formatNumber(r.visitors / 10000, 0)}万人</div>
               </div>
-              <div style={regionStyles.stat}>
-                <span style={regionStyles.statLabel}>客単価</span>
-                <span style={regionStyles.statValue}>{formatNumber(r.perPerson / 10000, 1)}万円</span>
+              <div style={regionStyles.statItem}>
+                <div style={regionStyles.statLabel}>客単価</div>
+                <div style={regionStyles.statValue}>{formatNumber(r.perPerson / 10000, 1)}万円</div>
               </div>
-              <div style={regionStyles.stat}>
-                <span style={regionStyles.statLabel}>買物比率</span>
-                <span style={regionStyles.statValue}>{r.shopRatio.toFixed(1)}%</span>
+              <div style={regionStyles.statItem}>
+                <div style={regionStyles.statLabel}>買物比率</div>
+                <div style={regionStyles.statValue}>{r.shopRatio.toFixed(1)}%</div>
               </div>
-              <div style={regionStyles.stat}>
-                <span style={regionStyles.statLabel}>前年比</span>
-                <span style={{ ...regionStyles.statValue, color: r.growth >= 0 ? '#16a34a' : '#c41e3a' }}>
+              <div style={regionStyles.statItem}>
+                <div style={regionStyles.statLabel}>前年比</div>
+                <div style={{ ...regionStyles.statValue, color: r.growth >= 0 ? '#059669' : '#dc2626' }}>
                   {r.growth >= 0 ? '+' : ''}{r.growth.toFixed(1)}%
-                </span>
+                </div>
               </div>
             </div>
           </div>
@@ -313,36 +315,37 @@ const RegionComparison = ({ data, previousData }) => {
 };
 
 const regionStyles = {
-  container: { marginTop: 24 },
-  sectionTitle: { fontSize: 16, fontWeight: 700, marginBottom: 16, color: '#1a1a1a' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e2e8f0' },
-  header: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 },
-  regionDot: { width: 12, height: 12, borderRadius: '50%' },
-  regionName: { fontSize: 14, fontWeight: 600 },
-  mainValue: { fontSize: 24, fontWeight: 700, color: '#1a1a1a' },
-  unit: { fontSize: 14, fontWeight: 400, color: '#64748b', marginLeft: 4 },
-  bar: { height: 6, backgroundColor: '#f1f5f9', borderRadius: 3, marginTop: 8, marginBottom: 12, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 3, transition: 'width 0.3s' },
-  stats: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 },
-  stat: { display: 'flex', flexDirection: 'column', gap: 2 },
-  statLabel: { fontSize: 11, color: '#64748b' },
-  statValue: { fontSize: 13, fontWeight: 600, fontFamily: 'monospace' }
+  container: { marginTop: 32 },
+  sectionTitle: { fontSize: 18, fontWeight: 700, marginBottom: 20, color: '#1a1a1a', borderBottom: '2px solid #1a1a1a', paddingBottom: 8, display: 'inline-block' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 },
+  card: { backgroundColor: '#fff', borderRadius: 8, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb' },
+  header: { display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 },
+  regionIndicator: { width: 4, height: 40, borderRadius: 2 },
+  regionName: { fontSize: 16, fontWeight: 700, color: '#1a1a1a' },
+  share: { fontSize: 13, color: '#6b7280', marginTop: 2 },
+  mainValue: { fontSize: 32, fontWeight: 800, color: '#1a1a1a', letterSpacing: '-0.02em' },
+  unit: { fontSize: 16, fontWeight: 500, color: '#6b7280', marginLeft: 4 },
+  bar: { height: 8, backgroundColor: '#f3f4f6', borderRadius: 4, marginTop: 12, marginBottom: 20, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 4, transition: 'width 0.4s ease' },
+  statsGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
+  statItem: { },
+  statLabel: { fontSize: 12, color: '#6b7280', marginBottom: 4, fontWeight: 500 },
+  statValue: { fontSize: 15, fontWeight: 700, color: '#1a1a1a' }
 };
 
 // ============================================================
-// 📊 費目別 국가 비교 컴포넌트
+// 費目別 국가 비교 컴포넌트
 // ============================================================
 const CategoryComparison = ({ data }) => {
   const [selectedCategory, setSelectedCategory] = useState('shopping');
   
   const categories = [
-    { id: 'total', label: '総消費額', icon: '💰' },
-    { id: 'accommodation', label: '宿泊費', icon: '🏨' },
-    { id: 'food', label: '飲食費', icon: '🍽️' },
-    { id: 'shopping', label: '買物代', icon: '🛍️' },
-    { id: 'transport', label: '交通費', icon: '🚃' },
-    { id: 'entertainment', label: '娯楽等', icon: '🎯' }
+    { id: 'total', label: '総消費額' },
+    { id: 'accommodation', label: '宿泊費' },
+    { id: 'food', label: '飲食費' },
+    { id: 'shopping', label: '買物代' },
+    { id: 'transport', label: '交通費' },
+    { id: 'entertainment', label: '娯楽等' }
   ];
 
   const chartData = useMemo(() => {
@@ -363,7 +366,7 @@ const CategoryComparison = ({ data }) => {
 
   return (
     <div style={catStyles.container}>
-      <h3 style={catStyles.sectionTitle}>📊 費目別 国別比較</h3>
+      <h3 style={catStyles.sectionTitle}>費目別 国別比較</h3>
       <div style={catStyles.categoryTabs}>
         {categories.map(cat => (
           <button
@@ -374,7 +377,7 @@ const CategoryComparison = ({ data }) => {
               ...(selectedCategory === cat.id ? catStyles.catTabActive : {})
             }}
           >
-            {cat.icon} {cat.label}
+            {cat.label}
           </button>
         ))}
       </div>
@@ -382,7 +385,11 @@ const CategoryComparison = ({ data }) => {
         {chartData.map((d, idx) => (
           <div key={d.country} style={catStyles.barRow}>
             <div style={catStyles.barLabel}>
-              <span style={catStyles.barRank}>{idx + 1}</span>
+              <span style={{
+                ...catStyles.barRank,
+                backgroundColor: idx === 0 ? '#1a1a1a' : idx === 1 ? '#4a5568' : idx === 2 ? '#718096' : '#f3f4f6',
+                color: idx < 3 ? '#fff' : '#6b7280'
+              }}>{idx + 1}</span>
               <span style={catStyles.barFlag}>{d.flag}</span>
               <span style={catStyles.barCountry}>{d.country}</span>
             </div>
@@ -391,7 +398,7 @@ const CategoryComparison = ({ data }) => {
                 style={{ 
                   ...catStyles.barFill, 
                   width: `${(d.value / maxValue) * 100}%`,
-                  backgroundColor: REGION_COLORS[d.region] || '#64748b'
+                  backgroundColor: REGION_COLORS[d.region] || '#6b7280'
                 }} 
               />
               <span style={catStyles.barValue}>{formatNumber(d.value, 0)}億円</span>
@@ -404,24 +411,24 @@ const CategoryComparison = ({ data }) => {
 };
 
 const catStyles = {
-  container: { marginTop: 24, backgroundColor: '#fff', borderRadius: 8, padding: 20, border: '1px solid #e2e8f0' },
-  sectionTitle: { fontSize: 16, fontWeight: 700, marginBottom: 16, color: '#1a1a1a' },
-  categoryTabs: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
-  catTab: { padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, backgroundColor: '#fff', cursor: 'pointer', fontSize: 13, transition: 'all 0.2s' },
-  catTabActive: { backgroundColor: '#1a1a1a', color: '#fff', borderColor: '#1a1a1a' },
-  chartContainer: { display: 'flex', flexDirection: 'column', gap: 12 },
-  barRow: { display: 'flex', alignItems: 'center', gap: 12 },
-  barLabel: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 140 },
-  barRank: { width: 20, height: 20, borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#64748b' },
-  barFlag: { fontSize: 16 },
-  barCountry: { fontSize: 13, color: '#1a1a1a' },
-  barWrapper: { flex: 1, display: 'flex', alignItems: 'center', gap: 8 },
-  barFill: { height: 24, borderRadius: 4, transition: 'width 0.3s' },
-  barValue: { fontSize: 12, fontWeight: 600, color: '#64748b', minWidth: 70, textAlign: 'right' }
+  container: { marginTop: 32, backgroundColor: '#fff', borderRadius: 8, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb' },
+  sectionTitle: { fontSize: 18, fontWeight: 700, marginBottom: 20, color: '#1a1a1a' },
+  categoryTabs: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24, borderBottom: '1px solid #e5e7eb', paddingBottom: 16 },
+  catTab: { padding: '10px 16px', border: 'none', borderRadius: 6, backgroundColor: '#f3f4f6', cursor: 'pointer', fontSize: 14, fontWeight: 500, color: '#4b5563', transition: 'all 0.2s' },
+  catTabActive: { backgroundColor: '#1a1a1a', color: '#fff' },
+  chartContainer: { display: 'flex', flexDirection: 'column', gap: 14 },
+  barRow: { display: 'flex', alignItems: 'center', gap: 16 },
+  barLabel: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 160 },
+  barRank: { width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 },
+  barFlag: { fontSize: 20 },
+  barCountry: { fontSize: 14, color: '#1a1a1a', fontWeight: 500 },
+  barWrapper: { flex: 1, display: 'flex', alignItems: 'center', gap: 12 },
+  barFill: { height: 28, borderRadius: 4, transition: 'width 0.4s ease' },
+  barValue: { fontSize: 14, fontWeight: 700, color: '#374151', minWidth: 80, textAlign: 'right' }
 };
 
 // ============================================================
-// 📊 인사이트 하이라이트 컴포넌트
+// 인사이트 하이라이트 컴포넌트
 // ============================================================
 const InsightHighlights = ({ data, previousData }) => {
   const insights = useMemo(() => {
@@ -442,9 +449,12 @@ const InsightHighlights = ({ data, previousData }) => {
     const topGrowth = withGrowth.sort((a, b) => b.growth - a.growth)[0];
     if (topGrowth && topGrowth.growth > 0) {
       result.push({
-        icon: '🚀',
-        type: 'positive',
-        text: `${COUNTRY_FLAGS[topGrowth.country]} ${topGrowth.country}が前年比+${topGrowth.growth.toFixed(1)}%で最も成長`
+        type: 'growth',
+        label: '最高成長',
+        country: topGrowth.country,
+        flag: COUNTRY_FLAGS[topGrowth.country],
+        value: `+${topGrowth.growth.toFixed(1)}%`,
+        color: '#059669'
       });
     }
     
@@ -452,9 +462,12 @@ const InsightHighlights = ({ data, previousData }) => {
     const topDecline = withGrowth.sort((a, b) => a.growth - b.growth)[0];
     if (topDecline && topDecline.growth < 0) {
       result.push({
-        icon: '📉',
-        type: 'negative',
-        text: `${COUNTRY_FLAGS[topDecline.country]} ${topDecline.country}が前年比${topDecline.growth.toFixed(1)}%で減少`
+        type: 'decline',
+        label: '最大減少',
+        country: topDecline.country,
+        flag: COUNTRY_FLAGS[topDecline.country],
+        value: `${topDecline.growth.toFixed(1)}%`,
+        color: '#dc2626'
       });
     }
     
@@ -462,9 +475,12 @@ const InsightHighlights = ({ data, previousData }) => {
     const topPerPerson = [...countries].sort((a, b) => b.perPerson - a.perPerson)[0];
     if (topPerPerson) {
       result.push({
-        icon: '💎',
-        type: 'info',
-        text: `客単価1位は${COUNTRY_FLAGS[topPerPerson.country]} ${topPerPerson.country}（${formatNumber(topPerPerson.perPerson / 10000, 1)}万円）`
+        type: 'premium',
+        label: '客単価1位',
+        country: topPerPerson.country,
+        flag: COUNTRY_FLAGS[topPerPerson.country],
+        value: `${formatNumber(topPerPerson.perPerson / 10000, 1)}万円`,
+        color: '#1a1a1a'
       });
     }
     
@@ -472,9 +488,12 @@ const InsightHighlights = ({ data, previousData }) => {
     const topVisitors = [...countries].sort((a, b) => b.visitors - a.visitors)[0];
     if (topVisitors) {
       result.push({
-        icon: '✈️',
-        type: 'info',
-        text: `訪日客数1位は${COUNTRY_FLAGS[topVisitors.country]} ${topVisitors.country}（${formatNumber(topVisitors.visitors / 10000, 0)}万人）`
+        type: 'volume',
+        label: '訪日客数1位',
+        country: topVisitors.country,
+        flag: COUNTRY_FLAGS[topVisitors.country],
+        value: `${formatNumber(topVisitors.visitors / 10000, 0)}万人`,
+        color: '#1a1a1a'
       });
     }
     
@@ -483,9 +502,12 @@ const InsightHighlights = ({ data, previousData }) => {
     const topShopping = withShopRatio.sort((a, b) => b.shopRatio - a.shopRatio)[0];
     if (topShopping) {
       result.push({
-        icon: '🛍️',
-        type: 'info',
-        text: `買物比率が最も高いのは${COUNTRY_FLAGS[topShopping.country]} ${topShopping.country}（${topShopping.shopRatio.toFixed(1)}%）`
+        type: 'shopping',
+        label: '買物比率1位',
+        country: topShopping.country,
+        flag: COUNTRY_FLAGS[topShopping.country],
+        value: `${topShopping.shopRatio.toFixed(1)}%`,
+        color: '#1a1a1a'
       });
     }
     
@@ -496,18 +518,18 @@ const InsightHighlights = ({ data, previousData }) => {
 
   return (
     <div style={insightStyles.container}>
-      <h3 style={insightStyles.title}>💡 主要インサイト</h3>
+      <h3 style={insightStyles.title}>主要インサイト</h3>
       <div style={insightStyles.grid}>
         {insights.map((insight, idx) => (
-          <div 
-            key={idx} 
-            style={{
-              ...insightStyles.card,
-              borderLeftColor: insight.type === 'positive' ? '#16a34a' : insight.type === 'negative' ? '#c41e3a' : '#3b82f6'
-            }}
-          >
-            <span style={insightStyles.icon}>{insight.icon}</span>
-            <span style={insightStyles.text}>{insight.text}</span>
+          <div key={idx} style={insightStyles.card}>
+            <div style={insightStyles.cardLabel}>{insight.label}</div>
+            <div style={insightStyles.cardMain}>
+              <span style={insightStyles.cardFlag}>{insight.flag}</span>
+              <span style={insightStyles.cardCountry}>{insight.country}</span>
+            </div>
+            <div style={{ ...insightStyles.cardValue, color: insight.color }}>
+              {insight.value}
+            </div>
           </div>
         ))}
       </div>
@@ -516,12 +538,15 @@ const InsightHighlights = ({ data, previousData }) => {
 };
 
 const insightStyles = {
-  container: { marginTop: 24 },
-  title: { fontSize: 16, fontWeight: 700, marginBottom: 16, color: '#1a1a1a' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 },
-  card: { display: 'flex', alignItems: 'center', gap: 12, backgroundColor: '#fff', padding: '12px 16px', borderRadius: 8, border: '1px solid #e2e8f0', borderLeft: '4px solid' },
-  icon: { fontSize: 20 },
-  text: { fontSize: 13, color: '#1a1a1a', lineHeight: 1.5 }
+  container: { marginTop: 32 },
+  title: { fontSize: 18, fontWeight: 700, marginBottom: 20, color: '#1a1a1a', borderBottom: '2px solid #1a1a1a', paddingBottom: 8, display: 'inline-block' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 },
+  card: { backgroundColor: '#fff', padding: 20, borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', textAlign: 'center' },
+  cardLabel: { fontSize: 12, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 },
+  cardMain: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 },
+  cardFlag: { fontSize: 24 },
+  cardCountry: { fontSize: 16, fontWeight: 600, color: '#1a1a1a' },
+  cardValue: { fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em' }
 };
 
 // API 요청 딜레이 (429 에러 방지)
@@ -1333,17 +1358,17 @@ export default function App() {
 
         <nav style={styles.tabs}>
           {[
-            { id: 'overview', label: '国別', icon: '🌏' },
-            { id: 'analysis', label: '分析', icon: '📊' },
-            { id: 'matrix', label: 'マトリクス', icon: '📈' },
-            { id: 'composition', label: '費目構成', icon: '📋' }
+            { id: 'overview', label: '国別データ' },
+            { id: 'analysis', label: '分析レポート' },
+            { id: 'matrix', label: 'マトリクス' },
+            { id: 'composition', label: '費目構成' }
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               style={{ ...styles.tab, ...(activeTab === tab.id ? styles.tabActive : {}) }}
             >
-              <span style={styles.tabIcon}>{tab.icon}</span> {tab.label}
+              {tab.label}
             </button>
           ))}
         </nav>
@@ -1401,29 +1426,29 @@ export default function App() {
 const styles = {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#fafafa',
-    fontFamily: '"Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif',
+    backgroundColor: '#f8fafc',
+    fontFamily: '"Noto Sans JP", "Inter", "Hiragino Kaku Gothic ProN", sans-serif',
     color: '#1a1a1a',
-    lineHeight: 1.6
+    lineHeight: 1.7
   },
   header: {
     backgroundColor: '#1a1a1a',
     color: '#fff'
   },
   headerInner: {
-    maxWidth: 1080,
+    maxWidth: 1200,
     margin: '0 auto',
-    padding: '32px 20px'
+    padding: '40px 24px'
   },
   title: {
     margin: 0,
-    fontSize: 'clamp(22px, 4vw, 28px)',
-    fontWeight: 700,
-    letterSpacing: '0.02em'
+    fontSize: 'clamp(26px, 4vw, 32px)',
+    fontWeight: 800,
+    letterSpacing: '-0.01em'
   },
   subtitle: {
-    margin: '8px 0 0',
-    fontSize: 13,
+    margin: '10px 0 0',
+    fontSize: 14,
     opacity: 0.7,
     fontWeight: 400
   },
@@ -1431,47 +1456,49 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
-    padding: '20px 0',
-    marginTop: 16,
+    gap: 20,
+    padding: '24px 0',
+    marginTop: 20,
     backgroundColor: '#fff',
-    border: '1px solid #e2e8f0',
-    borderRadius: 6
+    border: '1px solid #e5e7eb',
+    borderRadius: 8,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
   },
   periodLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 600,
-    color: '#4a5568'
+    color: '#374151'
   },
   periodNote: {
-    fontSize: 12,
-    color: '#718096',
-    marginLeft: 8
+    fontSize: 13,
+    color: '#6b7280',
+    marginLeft: 12
   },
   controls: {
     display: 'flex',
     alignItems: 'center',
-    gap: 12
+    gap: 16
   },
   controlItem: {},
   select: {
-    padding: '10px 14px',
-    fontSize: 14,
-    border: '1px solid #e2e8f0',
-    borderRadius: 4,
+    padding: '12px 16px',
+    fontSize: 15,
+    border: '1px solid #d1d5db',
+    borderRadius: 6,
     backgroundColor: '#fff',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    fontWeight: 500
   },
   insightBar: {
-    maxWidth: 1080,
+    maxWidth: 1200,
     margin: '0 auto',
-    padding: '14px 20px',
+    padding: '16px 24px',
     display: 'flex',
     flexWrap: 'wrap',
-    gap: '12px 24px',
-    fontSize: 13,
-    color: '#4a5568',
-    borderBottom: '1px solid #e2e8f0'
+    gap: '12px 28px',
+    fontSize: 14,
+    color: '#374151',
+    borderBottom: '1px solid #e5e7eb'
   },
   insightItem: {},
   insightFlag: {
@@ -1501,76 +1528,77 @@ const styles = {
     fontWeight: 700
   },
   tabs: {
-    maxWidth: 1080,
+    maxWidth: 1200,
     margin: '0 auto',
-    padding: '0 20px',
+    padding: '0 24px',
     display: 'flex',
-    gap: 0,
-    borderBottom: '1px solid #e2e8f0'
+    gap: 4,
+    borderBottom: '1px solid #e5e7eb',
+    backgroundColor: '#fff'
   },
   tab: {
-    padding: '14px 20px',
-    fontSize: 13,
+    padding: '16px 24px',
+    fontSize: 15,
     fontWeight: 500,
     border: 'none',
-    borderBottom: '2px solid transparent',
+    borderBottom: '3px solid transparent',
     backgroundColor: 'transparent',
-    color: '#718096',
+    color: '#6b7280',
     cursor: 'pointer',
-    transition: 'all 0.15s',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6
+    transition: 'all 0.15s'
   },
   tabIcon: {
     fontSize: 14
   },
   tabActive: {
     color: '#1a1a1a',
+    fontWeight: 600,
     borderBottomColor: '#1a1a1a'
   },
   main: {
-    maxWidth: 1080,
+    maxWidth: 1200,
     margin: '0 auto',
-    padding: '24px 20px'
+    padding: '32px 24px'
   },
   kpiRow: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-    gap: 16,
-    marginBottom: 24
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: 20,
+    marginBottom: 32
   },
   kpiCard: {
-    padding: 20,
+    padding: 24,
     backgroundColor: '#fff',
-    border: '1px solid #e2e8f0',
-    borderRadius: 6,
+    border: '1px solid #e5e7eb',
+    borderRadius: 8,
     position: 'relative',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
   },
   kpiHeader: {
     display: 'flex',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 8
+    gap: 8,
+    marginBottom: 12
   },
   kpiIcon: {
-    fontSize: 14
+    fontSize: 16
   },
   kpiLabel: {
-    fontSize: 12,
-    color: '#718096'
+    fontSize: 13,
+    color: '#6b7280',
+    fontWeight: 500
   },
   kpiValue: {
-    fontSize: 'clamp(26px, 5vw, 32px)',
-    fontWeight: 700,
+    fontSize: 'clamp(32px, 5vw, 40px)',
+    fontWeight: 800,
     letterSpacing: '-0.02em'
   },
   kpiUnit: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 500,
-    color: '#718096',
-    marginLeft: 4
+    color: '#6b7280',
+    marginLeft: 6
   },
   kpiChange: {
     fontSize: 12,
