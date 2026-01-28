@@ -1270,9 +1270,11 @@ const MatrixChart = ({ data, previousData }) => {
     
     return {
       country: item.country,
+      flag: COUNTRY_FLAGS[item.country] || '🌐',
       growth,
       perPerson,
       total: item.total,
+      visitors: item.visitors || 0,
       region: getRegionForCountry(item.country),
       hasPrevData: !!prev?.total
     };
@@ -1280,34 +1282,37 @@ const MatrixChart = ({ data, previousData }) => {
 
   const hasPrevData = previousData?.length > 0;
 
-  // 평균값 계산
-  const avgGrowth = chartData.reduce((s, d) => s + d.growth, 0) / chartData.length;
-  const avgPerPerson = chartData.reduce((s, d) => s + d.perPerson, 0) / chartData.length;
+  // 상위 10개국만 라벨 표시
+  const top10 = [...chartData].sort((a, b) => b.total - a.total).slice(0, 12);
 
   return (
     <div style={matrixStyles.container}>
       <div style={matrixStyles.header}>
-        <h3 style={matrixStyles.title}>ポジショニングマップ</h3>
-        <p style={matrixStyles.subtitle}>成長率 × 客単価で各国の特性を把握</p>
+        <h3 style={matrixStyles.title}>市場ポジショニング</h3>
+        <p style={matrixStyles.subtitle}>成長率 × 客単価で見る各国市場の特性</p>
       </div>
       
-      {/* 4사분면 설명 */}
+      {/* 새로운 4사분면 설명 - 포지티브 표현 */}
       <div style={matrixStyles.quadrantGuide}>
-        <div style={matrixStyles.quadrant}>
+        <div style={{...matrixStyles.quadrant, borderLeft: '3px solid #059669'}}>
           <div style={matrixStyles.quadrantLabel}>高成長・高単価</div>
-          <div style={matrixStyles.quadrantDesc}>プレミアム成長市場</div>
+          <div style={matrixStyles.quadrantDesc}>プレミアム × 成長性</div>
+          <div style={matrixStyles.quadrantExample}>欧米からの長期滞在者など</div>
         </div>
-        <div style={matrixStyles.quadrant}>
-          <div style={matrixStyles.quadrantLabel}>低成長・高単価</div>
-          <div style={matrixStyles.quadrantDesc}>成熟プレミアム市場</div>
+        <div style={{...matrixStyles.quadrant, borderLeft: '3px solid #2563eb'}}>
+          <div style={matrixStyles.quadrantLabel}>安定・高単価</div>
+          <div style={matrixStyles.quadrantDesc}>高付加価値市場</div>
+          <div style={matrixStyles.quadrantExample}>富裕層・ビジネス客など</div>
         </div>
-        <div style={matrixStyles.quadrant}>
-          <div style={matrixStyles.quadrantLabel}>高成長・低単価</div>
-          <div style={matrixStyles.quadrantDesc}>ボリューム成長市場</div>
+        <div style={{...matrixStyles.quadrant, borderLeft: '3px solid #d97706'}}>
+          <div style={matrixStyles.quadrantLabel}>高成長・リーズナブル</div>
+          <div style={matrixStyles.quadrantDesc}>ボリューム拡大市場</div>
+          <div style={matrixStyles.quadrantExample}>新興市場からの急増など</div>
         </div>
-        <div style={matrixStyles.quadrant}>
-          <div style={matrixStyles.quadrantLabel}>低成長・低単価</div>
-          <div style={matrixStyles.quadrantDesc}>要検討市場</div>
+        <div style={{...matrixStyles.quadrant, borderLeft: '3px solid #6b7280'}}>
+          <div style={matrixStyles.quadrantLabel}>安定・リーズナブル</div>
+          <div style={matrixStyles.quadrantDesc}>近隣リピーター市場</div>
+          <div style={matrixStyles.quadrantExample}>韓国・台湾など近距離常連客</div>
         </div>
       </div>
 
@@ -1315,67 +1320,90 @@ const MatrixChart = ({ data, previousData }) => {
         <div style={matrixStyles.noDataNote}>※ 前年データがないため、成長率は0%で表示</div>
       )}
       
-      <div style={matrixStyles.chartWrapper}>
-        {chartData.length === 0 ? (
-          <div style={matrixStyles.noData}>データがありません</div>
-        ) : (
-          <ResponsiveContainer width="100%" height={450}>
-            <ScatterChart margin={{ top: 30, right: 30, bottom: 50, left: 50 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              {/* 평균선 표시 */}
-              <XAxis 
-                type="number" 
-                dataKey="growth" 
-                name="成長率" 
-                unit="%"
-                tick={{ fontSize: 12, fill: '#6b7280' }}
-                axisLine={{ stroke: '#9ca3af' }}
-                label={{ value: '成長率（前年比）', position: 'bottom', offset: 30, fontSize: 13, fill: '#374151', fontWeight: 600 }}
-              />
-              <YAxis 
-                type="number" 
-                dataKey="perPerson" 
-                name="客単価" 
-                unit="万円"
-                tick={{ fontSize: 12, fill: '#6b7280' }}
-                axisLine={{ stroke: '#9ca3af' }}
-                label={{ value: '客単価（万円）', angle: -90, position: 'left', offset: 25, fontSize: 13, fill: '#374151', fontWeight: 600 }}
-              />
-              <ZAxis type="number" dataKey="total" range={[80, 800]} />
-              <Tooltip 
-                content={({ payload }) => {
-                  if (!payload?.[0]) return null;
-                  const d = payload[0].payload;
-                  const flag = COUNTRY_FLAGS[d.country] || '🌐';
-                  return (
-                    <div style={matrixStyles.tooltip}>
-                      <div style={matrixStyles.tooltipTitle}>{flag} {d.country}</div>
-                      <div style={matrixStyles.tooltipRow}>
-                        <span>成長率</span>
-                        <span style={{ color: d.growth >= 0 ? '#059669' : '#dc2626', fontWeight: 700 }}>
-                          {d.hasPrevData ? (d.growth >= 0 ? '+' : '') + d.growth.toFixed(1) + '%' : 'N/A'}
-                        </span>
+      {/* 국가 리스트 (차트 옆에 표시) */}
+      <div style={matrixStyles.mainContent}>
+        <div style={matrixStyles.chartWrapper}>
+          {chartData.length === 0 ? (
+            <div style={matrixStyles.noData}>データがありません</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={450}>
+              <ScatterChart margin={{ top: 30, right: 30, bottom: 50, left: 50 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  type="number" 
+                  dataKey="growth" 
+                  name="成長率" 
+                  unit="%"
+                  tick={{ fontSize: 12, fill: '#6b7280' }}
+                  axisLine={{ stroke: '#d1d5db' }}
+                  label={{ value: '← 安定　　　成長率（前年比）　　　成長 →', position: 'bottom', offset: 30, fontSize: 12, fill: '#6b7280' }}
+                />
+                <YAxis 
+                  type="number" 
+                  dataKey="perPerson" 
+                  name="客単価" 
+                  unit="万円"
+                  tick={{ fontSize: 12, fill: '#6b7280' }}
+                  axisLine={{ stroke: '#d1d5db' }}
+                  label={{ value: '客単価（万円）', angle: -90, position: 'left', offset: 25, fontSize: 12, fill: '#6b7280' }}
+                />
+                <ZAxis type="number" dataKey="total" range={[100, 1000]} />
+                <Tooltip 
+                  content={({ payload }) => {
+                    if (!payload?.[0]) return null;
+                    const d = payload[0].payload;
+                    return (
+                      <div style={matrixStyles.tooltip}>
+                        <div style={matrixStyles.tooltipTitle}>{d.flag} {d.country}</div>
+                        <div style={matrixStyles.tooltipRow}>
+                          <span>成長率</span>
+                          <span style={{ color: d.growth >= 0 ? '#059669' : '#dc2626', fontWeight: 700 }}>
+                            {d.hasPrevData ? (d.growth >= 0 ? '+' : '') + d.growth.toFixed(1) + '%' : 'N/A'}
+                          </span>
+                        </div>
+                        <div style={matrixStyles.tooltipRow}>
+                          <span>客単価</span>
+                          <span style={{ fontWeight: 700 }}>{d.perPerson.toFixed(1)}万円</span>
+                        </div>
+                        <div style={matrixStyles.tooltipRow}>
+                          <span>消費額</span>
+                          <span style={{ fontWeight: 700 }}>{formatNumber(d.total, 0)}億円</span>
+                        </div>
+                        <div style={matrixStyles.tooltipRow}>
+                          <span>訪日客数</span>
+                          <span style={{ fontWeight: 700 }}>{formatNumber(d.visitors / 10000, 0)}万人</span>
+                        </div>
                       </div>
-                      <div style={matrixStyles.tooltipRow}>
-                        <span>客単価</span>
-                        <span style={{ fontWeight: 700 }}>{d.perPerson.toFixed(1)}万円</span>
-                      </div>
-                      <div style={matrixStyles.tooltipRow}>
-                        <span>消費額</span>
-                        <span style={{ fontWeight: 700 }}>{formatNumber(d.total, 0)}億円</span>
-                      </div>
-                    </div>
-                  );
-                }}
-              />
-              <Scatter data={chartData}>
-                {chartData.map((entry, i) => (
-                  <Cell key={i} fill={REGION_COLORS[entry.region] || '#9ca3af'} fillOpacity={0.85} />
-                ))}
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
-        )}
+                    );
+                  }}
+                />
+                <Scatter data={chartData}>
+                  {chartData.map((entry, i) => (
+                    <Cell key={i} fill={REGION_COLORS[entry.region] || '#9ca3af'} fillOpacity={0.85} />
+                  ))}
+                </Scatter>
+              </ScatterChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* 상위 국가 리스트 */}
+        <div style={matrixStyles.countryList}>
+          <div style={matrixStyles.listTitle}>主要国一覧</div>
+          {top10.map((d, i) => (
+            <div key={d.country} style={matrixStyles.listItem}>
+              <span style={matrixStyles.listRank}>{i + 1}</span>
+              <span style={matrixStyles.listFlag}>{d.flag}</span>
+              <span style={matrixStyles.listCountry}>{d.country}</span>
+              <div style={matrixStyles.listValues}>
+                <span style={{color: d.growth >= 0 ? '#059669' : '#dc2626', fontWeight: 600}}>
+                  {d.growth >= 0 ? '+' : ''}{d.growth.toFixed(0)}%
+                </span>
+                <span style={{color: '#6b7280'}}>{d.perPerson.toFixed(0)}万円</span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
       
       <div style={matrixStyles.legend}>
@@ -1399,14 +1427,23 @@ const matrixStyles = {
   header: { marginBottom: 24 },
   title: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: 0 },
   subtitle: { fontSize: 14, color: '#6b7280', margin: '8px 0 0' },
-  quadrantGuide: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24, padding: 16, backgroundColor: '#f9fafb', borderRadius: 8 },
-  quadrant: { padding: 12 },
-  quadrantLabel: { fontSize: 13, fontWeight: 600, color: '#374151' },
-  quadrantDesc: { fontSize: 12, color: '#6b7280', marginTop: 2 },
+  quadrantGuide: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 },
+  quadrant: { padding: '12px 16px', backgroundColor: '#f9fafb', borderRadius: 6 },
+  quadrantLabel: { fontSize: 14, fontWeight: 700, color: '#1a1a1a' },
+  quadrantDesc: { fontSize: 13, color: '#374151', marginTop: 2 },
+  quadrantExample: { fontSize: 12, color: '#9ca3af', marginTop: 4 },
   noDataNote: { fontSize: 13, color: '#f59e0b', backgroundColor: '#fffbeb', padding: '12px 16px', borderRadius: 6, marginBottom: 16 },
+  mainContent: { display: 'grid', gridTemplateColumns: '1fr 200px', gap: 24 },
   chartWrapper: { },
+  countryList: { backgroundColor: '#f9fafb', borderRadius: 8, padding: 16 },
+  listTitle: { fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #e5e7eb' },
+  listItem: { display: 'grid', gridTemplateColumns: '20px 24px 1fr auto', gap: 6, alignItems: 'center', padding: '6px 0', fontSize: 13 },
+  listRank: { color: '#9ca3af', fontSize: 11, fontWeight: 600 },
+  listFlag: { fontSize: 14 },
+  listCountry: { color: '#374151', fontWeight: 500 },
+  listValues: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', fontSize: 12 },
   noData: { textAlign: 'center', padding: 60, color: '#9ca3af' },
-  tooltip: { backgroundColor: '#1a1a1a', color: '#fff', padding: 16, borderRadius: 8, fontSize: 13, minWidth: 160 },
+  tooltip: { backgroundColor: '#1a1a1a', color: '#fff', padding: 16, borderRadius: 8, fontSize: 13, minWidth: 180 },
   tooltipTitle: { fontSize: 15, fontWeight: 700, marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.2)' },
   tooltipRow: { display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 6 },
   legend: { display: 'flex', justifyContent: 'center', gap: 24, marginTop: 20, paddingTop: 20, borderTop: '1px solid #e5e7eb' },
