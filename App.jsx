@@ -98,6 +98,200 @@ const getRegionForCountry = (country) => {
 };
 
 // ============================================================
+// 연도별 시계열 트렌드 컴포넌트
+// ============================================================
+const YearlyTrendChart = () => {
+  const [selectedMetric, setSelectedMetric] = useState('total');
+  
+  // 연도별 집계
+  const yearlyData = useMemo(() => {
+    const years = ['2023', '2024', '2025'];
+    return years.map(year => {
+      const prefix = year.slice(2) + '/';
+      const quarters = TREND_DATA.filter(d => d.label.startsWith(prefix));
+      const total = quarters.reduce((s, q) => s + q.total, 0);
+      const avgPerPerson = quarters.length > 0 
+        ? quarters.reduce((s, q) => s + q.perPerson, 0) / quarters.length 
+        : 0;
+      return { year, total, perPerson: avgPerPerson, quarters: quarters.length };
+    });
+  }, []);
+
+  // 분기별 데이터
+  const quarterlyData = TREND_DATA.map(d => ({
+    ...d,
+    year: '20' + d.label.split('/')[0],
+    quarter: d.label.split('/')[1]
+  }));
+
+  const maxTotal = Math.max(...yearlyData.map(d => d.total));
+  const maxPerPerson = Math.max(...yearlyData.map(d => d.perPerson));
+
+  return (
+    <div style={trendStyles.container}>
+      <div style={trendStyles.header}>
+        <div>
+          <h3 style={trendStyles.title}>年次推移</h3>
+          <p style={trendStyles.subtitle}>2023年〜2025年の消費動向トレンド</p>
+        </div>
+      </div>
+
+      {/* 연도별 요약 카드 */}
+      <div style={trendStyles.yearCards}>
+        {yearlyData.map((d, i) => {
+          const prevYear = i > 0 ? yearlyData[i - 1] : null;
+          const growth = prevYear ? ((d.total - prevYear.total) / prevYear.total) * 100 : null;
+          
+          return (
+            <div key={d.year} style={trendStyles.yearCard}>
+              <div style={trendStyles.yearLabel}>{d.year}年</div>
+              <div style={trendStyles.yearTotal}>
+                {formatNumber(d.total, 0)}<span style={trendStyles.yearUnit}>億円</span>
+              </div>
+              {growth !== null && (
+                <div style={{
+                  ...trendStyles.yearGrowth,
+                  color: growth >= 0 ? '#059669' : '#dc2626'
+                }}>
+                  前年比 {growth >= 0 ? '+' : ''}{growth.toFixed(1)}%
+                </div>
+              )}
+              <div style={trendStyles.yearBar}>
+                <div style={{
+                  ...trendStyles.yearBarFill,
+                  width: `${(d.total / maxTotal) * 100}%`,
+                  backgroundColor: d.year === '2025' ? '#1a1a1a' : d.year === '2024' ? '#6b7280' : '#d1d5db'
+                }} />
+              </div>
+              <div style={trendStyles.yearPerPerson}>
+                客単価 {d.perPerson.toFixed(1)}万円
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 분기별 추이 그래프 */}
+      <div style={trendStyles.chartSection}>
+        <div style={trendStyles.chartHeader}>
+          <span style={trendStyles.chartLabel}>四半期別推移</span>
+          <div style={trendStyles.metricToggle}>
+            <button 
+              onClick={() => setSelectedMetric('total')}
+              style={{
+                ...trendStyles.toggleBtn,
+                ...(selectedMetric === 'total' ? trendStyles.toggleBtnActive : {})
+              }}
+            >
+              消費額
+            </button>
+            <button 
+              onClick={() => setSelectedMetric('perPerson')}
+              style={{
+                ...trendStyles.toggleBtn,
+                ...(selectedMetric === 'perPerson' ? trendStyles.toggleBtnActive : {})
+              }}
+            >
+              客単価
+            </button>
+          </div>
+        </div>
+        
+        <ResponsiveContainer width="100%" height={280}>
+          <ComposedChart data={quarterlyData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis 
+              dataKey="label" 
+              tick={{ fontSize: 12, fill: '#6b7280' }}
+              axisLine={{ stroke: '#d1d5db' }}
+            />
+            <YAxis 
+              tick={{ fontSize: 12, fill: '#6b7280' }}
+              axisLine={{ stroke: '#d1d5db' }}
+              tickFormatter={v => selectedMetric === 'total' ? `${(v/10000).toFixed(1)}兆` : `${v}万`}
+            />
+            <Tooltip 
+              content={({ payload, label }) => {
+                if (!payload?.[0]) return null;
+                const d = payload[0].payload;
+                return (
+                  <div style={trendStyles.tooltip}>
+                    <div style={trendStyles.tooltipTitle}>{label}</div>
+                    <div>消費額: {formatNumber(d.total, 0)}億円</div>
+                    <div>客単価: {d.perPerson.toFixed(1)}万円</div>
+                  </div>
+                );
+              }}
+            />
+            {selectedMetric === 'total' ? (
+              <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                {quarterlyData.map((entry, i) => (
+                  <Cell 
+                    key={i} 
+                    fill={entry.year === '2025' ? '#1a1a1a' : entry.year === '2024' ? '#6b7280' : '#d1d5db'} 
+                  />
+                ))}
+              </Bar>
+            ) : (
+              <Line 
+                type="monotone" 
+                dataKey="perPerson" 
+                stroke="#dc2626" 
+                strokeWidth={3}
+                dot={{ fill: '#dc2626', r: 5 }}
+              />
+            )}
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* 범례 */}
+      <div style={trendStyles.legend}>
+        <div style={trendStyles.legendItem}>
+          <div style={{...trendStyles.legendDot, backgroundColor: '#1a1a1a'}} />
+          <span>2025年</span>
+        </div>
+        <div style={trendStyles.legendItem}>
+          <div style={{...trendStyles.legendDot, backgroundColor: '#6b7280'}} />
+          <span>2024年</span>
+        </div>
+        <div style={trendStyles.legendItem}>
+          <div style={{...trendStyles.legendDot, backgroundColor: '#d1d5db'}} />
+          <span>2023年</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const trendStyles = {
+  container: { backgroundColor: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', marginTop: 32 },
+  header: { marginBottom: 24 },
+  title: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: 0 },
+  subtitle: { fontSize: 14, color: '#6b7280', margin: '4px 0 0' },
+  yearCards: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginBottom: 32 },
+  yearCard: { padding: 20, backgroundColor: '#f9fafb', borderRadius: 8, textAlign: 'center' },
+  yearLabel: { fontSize: 14, fontWeight: 600, color: '#6b7280', marginBottom: 8 },
+  yearTotal: { fontSize: 28, fontWeight: 800, color: '#1a1a1a' },
+  yearUnit: { fontSize: 14, fontWeight: 500, color: '#6b7280', marginLeft: 4 },
+  yearGrowth: { fontSize: 14, fontWeight: 600, marginTop: 4 },
+  yearBar: { height: 8, backgroundColor: '#e5e7eb', borderRadius: 4, marginTop: 12, overflow: 'hidden' },
+  yearBarFill: { height: '100%', borderRadius: 4, transition: 'width 0.4s' },
+  yearPerPerson: { fontSize: 13, color: '#6b7280', marginTop: 8 },
+  chartSection: { marginTop: 24 },
+  chartHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  chartLabel: { fontSize: 15, fontWeight: 600, color: '#374151' },
+  metricToggle: { display: 'flex', gap: 4, backgroundColor: '#f3f4f6', padding: 4, borderRadius: 6 },
+  toggleBtn: { padding: '6px 12px', fontSize: 13, fontWeight: 500, border: 'none', borderRadius: 4, backgroundColor: 'transparent', color: '#6b7280', cursor: 'pointer' },
+  toggleBtnActive: { backgroundColor: '#fff', color: '#1a1a1a', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' },
+  tooltip: { backgroundColor: '#1a1a1a', color: '#fff', padding: 12, borderRadius: 6, fontSize: 13 },
+  tooltipTitle: { fontWeight: 700, marginBottom: 8 },
+  legend: { display: 'flex', justifyContent: 'center', gap: 24, marginTop: 16, paddingTop: 16, borderTop: '1px solid #e5e7eb' },
+  legendItem: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 },
+  legendDot: { width: 12, height: 12, borderRadius: 3 }
+};
+
+// ============================================================
 // 📊 랭킹 분석 컴포넌트 (API 호출 없이 기존 데이터 활용)
 // ============================================================
 const RankingAnalysis = ({ data, previousData }) => {
@@ -1228,6 +1422,7 @@ const matrixStyles = {
 const CountryCompare = ({ data, previousData, year }) => {
   const [country1, setCountry1] = useState('');
   const [country2, setCountry2] = useState('');
+  const [country3, setCountry3] = useState('');
   
   const countries = useMemo(() => {
     if (!data) return [];
@@ -1236,11 +1431,12 @@ const CountryCompare = ({ data, previousData, year }) => {
 
   // 초기값 설정
   useEffect(() => {
-    if (countries.length >= 2 && !country1 && !country2) {
+    if (countries.length >= 3 && !country1 && !country2 && !country3) {
       setCountry1(countries[0]);
       setCountry2(countries[1]);
+      setCountry3(countries[2]);
     }
-  }, [countries, country1, country2]);
+  }, [countries, country1, country2, country3]);
 
   const getData = (countryName) => {
     const current = data?.find(d => d.country === countryName);
@@ -1261,6 +1457,7 @@ const CountryCompare = ({ data, previousData, year }) => {
 
   const d1 = getData(country1);
   const d2 = getData(country2);
+  const d3 = getData(country3);
 
   const metrics = [
     { label: '消費額', key: 'total', unit: '億円', format: v => formatNumber(v, 0) },
@@ -1274,12 +1471,15 @@ const CountryCompare = ({ data, previousData, year }) => {
   if (!data || data.length < 2) return null;
   if (!d1 || !d2) return null;
 
+  const allData = [d1, d2, d3].filter(Boolean);
+  const selectedCountries = [country1, country2, country3].filter(Boolean);
+
   return (
     <div style={compareStyles.container}>
       <div style={compareStyles.header}>
         <div>
           <h3 style={compareStyles.title}>国別比較</h3>
-          <p style={compareStyles.subtitle}>2カ国を選んで詳細比較</p>
+          <p style={compareStyles.subtitle}>最大3カ国を選んで詳細比較</p>
         </div>
         <div style={compareStyles.yearBadge}>{year}年 年間データ</div>
       </div>
@@ -1292,42 +1492,48 @@ const CountryCompare = ({ data, previousData, year }) => {
         <select value={country2} onChange={e => setCountry2(e.target.value)} style={compareStyles.select}>
           {countries.map(c => <option key={c} value={c}>{COUNTRY_FLAGS[c]} {c}</option>)}
         </select>
+        <span style={compareStyles.vs}>VS</span>
+        <select value={country3} onChange={e => setCountry3(e.target.value)} style={compareStyles.select}>
+          <option value="">選択なし</option>
+          {countries.map(c => <option key={c} value={c}>{COUNTRY_FLAGS[c]} {c}</option>)}
+        </select>
       </div>
 
       <div style={compareStyles.table}>
         <div style={compareStyles.headerRow}>
           <div style={compareStyles.metricCol}></div>
-          <div style={compareStyles.countryCol}>
-            <span style={compareStyles.flag}>{COUNTRY_FLAGS[country1]}</span>
-            <span>{country1}</span>
-          </div>
-          <div style={compareStyles.countryCol}>
-            <span style={compareStyles.flag}>{COUNTRY_FLAGS[country2]}</span>
-            <span>{country2}</span>
-          </div>
-          <div style={compareStyles.diffCol}>差分</div>
+          {selectedCountries.map((c, i) => (
+            <div key={i} style={compareStyles.countryCol}>
+              <span style={compareStyles.flag}>{COUNTRY_FLAGS[c]}</span>
+              <span>{c}</span>
+            </div>
+          ))}
         </div>
         
         {metrics.map(m => {
-          const v1 = d1[m.key] || 0;
-          const v2 = d2[m.key] || 0;
-          const diff = v1 - v2;
-          const winner = v1 > v2 ? 1 : v2 > v1 ? 2 : 0;
+          const values = allData.map(d => d?.[m.key] || 0);
+          const maxVal = Math.max(...values);
           
           return (
-            <div key={m.key} style={compareStyles.row}>
+            <div key={m.key} style={{...compareStyles.row, gridTemplateColumns: `120px repeat(${allData.length}, 1fr)`}}>
               <div style={compareStyles.metricCol}>{m.label}</div>
-              <div style={{...compareStyles.valueCol, fontWeight: winner === 1 ? 700 : 400, color: winner === 1 ? '#1a1a1a' : '#6b7280'}}>
-                {m.format(v1)}<span style={compareStyles.unit}>{m.unit}</span>
-                {winner === 1 && <span style={compareStyles.winBadge}>↑</span>}
-              </div>
-              <div style={{...compareStyles.valueCol, fontWeight: winner === 2 ? 700 : 400, color: winner === 2 ? '#1a1a1a' : '#6b7280'}}>
-                {m.format(v2)}<span style={compareStyles.unit}>{m.unit}</span>
-                {winner === 2 && <span style={compareStyles.winBadge}>↑</span>}
-              </div>
-              <div style={{...compareStyles.diffCol, color: diff > 0 ? '#059669' : diff < 0 ? '#dc2626' : '#6b7280'}}>
-                {diff > 0 ? '+' : ''}{m.format(diff)}
-              </div>
+              {allData.map((d, i) => {
+                const val = d?.[m.key] || 0;
+                const isMax = val === maxVal && values.filter(v => v === maxVal).length === 1;
+                return (
+                  <div key={i} style={{
+                    ...compareStyles.valueCol, 
+                    fontWeight: isMax ? 700 : 400, 
+                    color: isMax ? '#1a1a1a' : '#6b7280',
+                    backgroundColor: isMax ? '#f0fdf4' : 'transparent',
+                    padding: '8px 12px',
+                    borderRadius: 6
+                  }}>
+                    {m.format(val)}<span style={compareStyles.unit}>{m.unit}</span>
+                    {isMax && <span style={compareStyles.winBadge}>1位</span>}
+                  </div>
+                );
+              })}
             </div>
           );
         })}
@@ -2034,6 +2240,7 @@ export default function App() {
             {activeTab === 'composition' && <CompositionChart data={expenseData} />}
             {activeTab === 'analysis' && (
               <>
+                <YearlyTrendChart />
                 <InsightHighlights data={expenseData} previousData={previousExpenseData} />
                 <RegionComparison data={expenseData} previousData={previousExpenseData} />
                 <RankingAnalysis data={expenseData} previousData={previousExpenseData} />
