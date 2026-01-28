@@ -1076,14 +1076,17 @@ const TrendChart = ({ data, year, onYearSelect }) => {
 
   // 막대 위에 금액 라벨 표시하는 커스텀 컴포넌트
   const CustomBarLabel = ({ x, y, width, value, index }) => {
-    const isSelected = isSelectedYear(data[index]?.label);
+    const entry = data[index];
+    const yearPrefix = entry?.label?.split('/')[0];
+    // 연도별 색상
+    const labelColor = yearPrefix === '25' ? '#1a1a1a' : yearPrefix === '24' ? '#4b5563' : '#9ca3af';
     return (
       <text 
         x={x + width / 2} 
         y={y - 8} 
-        fill={isSelected ? '#1d4ed8' : '#4a5568'}
+        fill={labelColor}
         fontSize={10}
-        fontWeight={isSelected ? 700 : 500}
+        fontWeight={600}
         textAnchor="middle"
       >
         {formatNumber(value, 0)}
@@ -1098,7 +1101,7 @@ const TrendChart = ({ data, year, onYearSelect }) => {
       <text 
         x={x} 
         y={y - 12} 
-        fill="#c41e3a"
+        fill="#dc2626"
         fontSize={10}
         fontWeight={isSelected ? 700 : 500}
         textAnchor="middle"
@@ -1142,9 +1145,9 @@ const TrendChart = ({ data, year, onYearSelect }) => {
           <YAxis 
             yAxisId="right"
             orientation="right"
-            tick={{ fontSize: 11, fill: '#c41e3a' }}
+            tick={{ fontSize: 11, fill: '#dc2626' }}
             domain={[20, 25]}
-            label={{ value: '（万円）', position: 'top', offset: 15, fontSize: 11, fill: '#c41e3a' }}
+            label={{ value: '（万円）', position: 'top', offset: 15, fontSize: 11, fill: '#dc2626' }}
           />
           <Tooltip 
             formatter={(value, name) => {
@@ -1161,7 +1164,7 @@ const TrendChart = ({ data, year, onYearSelect }) => {
             yAxisId="left" 
             dataKey="total" 
             name="旅行消費額" 
-            radius={[2, 2, 0, 0]}
+            radius={[3, 3, 0, 0]}
             label={<CustomBarLabel />}
             onClick={(data) => {
               if (onYearSelect && data?.label) {
@@ -1171,24 +1174,30 @@ const TrendChart = ({ data, year, onYearSelect }) => {
             }}
             cursor="pointer"
           >
-            {data.map((entry, index) => (
-              <Cell 
-                key={`cell-${index}`} 
-                fill={isSelectedYear(entry.label) ? '#2563eb' : '#4a90a4'} 
-                fillOpacity={isSelectedYear(entry.label) ? 1 : 0.75}
-                stroke={isSelectedYear(entry.label) ? '#1d4ed8' : 'none'}
-                strokeWidth={isSelectedYear(entry.label) ? 2 : 0}
-              />
-            ))}
+            {data.map((entry, index) => {
+              const yearPrefix = entry.label?.split('/')[0];
+              const isSelected = isSelectedYear(entry.label);
+              // 연도별 색상: 2025=검정, 2024=진회색, 2023=연회색
+              const baseColor = yearPrefix === '25' ? '#1a1a1a' : yearPrefix === '24' ? '#6b7280' : '#d1d5db';
+              return (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={baseColor}
+                  fillOpacity={isSelected ? 1 : 0.7}
+                  stroke={isSelected ? '#000' : 'none'}
+                  strokeWidth={isSelected ? 2 : 0}
+                />
+              );
+            })}
           </Bar>
           <Line 
             yAxisId="right" 
             type="monotone" 
             dataKey="perPerson" 
             name="1人当たり旅行支出" 
-            stroke="#c41e3a" 
+            stroke="#dc2626" 
             strokeWidth={2} 
-            dot={{ r: 5, fill: '#c41e3a', stroke: '#fff', strokeWidth: 2 }}
+            dot={{ r: 5, fill: '#dc2626', stroke: '#fff', strokeWidth: 2 }}
             label={<CustomLineLabel />}
           />
         </ComposedChart>
@@ -2205,45 +2214,46 @@ export default function App() {
           onYearSelect={setYear}
         />
 
-        {/* 년도 선택 - 임팩트 있게 */}
-        <div style={styles.yearSelector}>
-          <div style={styles.yearDisplay}>
-            <span style={styles.yearBig}>{year}</span>
-            <span style={styles.yearUnit}>年</span>
+        {/* 스티키 헤더: 연도 선택 + 탭 */}
+        <div style={styles.stickyHeader}>
+          <div style={styles.stickyInner}>
+            <div style={styles.stickyYear}>
+              <span style={styles.stickyYearNum}>{year}</span>
+              <span style={styles.stickyYearUnit}>年</span>
+              <span style={styles.stickyYearNote}>年間データ</span>
+            </div>
+            <div style={styles.stickyButtons}>
+              {['2025', '2024', '2023'].map(y => (
+                <button
+                  key={y}
+                  onClick={() => setYear(y)}
+                  style={{
+                    ...styles.stickyBtn,
+                    ...(year === y ? styles.stickyBtnActive : {})
+                  }}
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
+            <nav style={styles.stickyTabs}>
+              {[
+                { id: 'overview', label: '国別データ' },
+                { id: 'analysis', label: '分析レポート' },
+                { id: 'matrix', label: 'マトリクス' },
+                { id: 'composition', label: '費目構成' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{ ...styles.stickyTab, ...(activeTab === tab.id ? styles.stickyTabActive : {}) }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
           </div>
-          <div style={styles.yearButtons}>
-            {['2025', '2024', '2023'].map(y => (
-              <button
-                key={y}
-                onClick={() => setYear(y)}
-                style={{
-                  ...styles.yearBtn,
-                  ...(year === y ? styles.yearBtnActive : {})
-                }}
-              >
-                {y}
-              </button>
-            ))}
-          </div>
-          <div style={styles.yearNote}>年間データ（Q1〜Q4合計）</div>
         </div>
-
-        <nav style={styles.tabs}>
-          {[
-            { id: 'overview', label: '国別データ' },
-            { id: 'analysis', label: '分析レポート' },
-            { id: 'matrix', label: 'マトリクス' },
-            { id: 'composition', label: '費目構成' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{ ...styles.tab, ...(activeTab === tab.id ? styles.tabActive : {}) }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
 
         {loading ? (
           <div style={styles.loadingBox}>
@@ -2329,6 +2339,85 @@ const styles = {
     fontSize: 14,
     opacity: 0.7,
     fontWeight: 400
+  },
+  // 스티키 헤더 스타일
+  stickyHeader: {
+    position: 'sticky',
+    top: 0,
+    zIndex: 100,
+    backgroundColor: '#1a1a1a',
+    marginTop: 24,
+    borderRadius: 12,
+    boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+  },
+  stickyInner: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '16px 24px',
+    gap: 20,
+    flexWrap: 'wrap'
+  },
+  stickyYear: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: 4,
+    color: '#fff'
+  },
+  stickyYearNum: {
+    fontSize: 36,
+    fontWeight: 900,
+    letterSpacing: '-0.02em'
+  },
+  stickyYearUnit: {
+    fontSize: 18,
+    fontWeight: 600,
+    opacity: 0.7
+  },
+  stickyYearNote: {
+    fontSize: 12,
+    opacity: 0.5,
+    marginLeft: 12
+  },
+  stickyButtons: {
+    display: 'flex',
+    gap: 8
+  },
+  stickyBtn: {
+    padding: '8px 16px',
+    fontSize: 14,
+    fontWeight: 600,
+    border: '1px solid rgba(255,255,255,0.3)',
+    borderRadius: 6,
+    backgroundColor: 'transparent',
+    color: 'rgba(255,255,255,0.7)',
+    cursor: 'pointer',
+    transition: 'all 0.2s'
+  },
+  stickyBtnActive: {
+    backgroundColor: '#fff',
+    color: '#1a1a1a',
+    borderColor: '#fff'
+  },
+  stickyTabs: {
+    display: 'flex',
+    gap: 4
+  },
+  stickyTab: {
+    padding: '10px 18px',
+    fontSize: 14,
+    fontWeight: 500,
+    border: 'none',
+    borderRadius: 6,
+    backgroundColor: 'transparent',
+    color: 'rgba(255,255,255,0.6)',
+    cursor: 'pointer',
+    transition: 'all 0.2s'
+  },
+  stickyTabActive: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    color: '#fff',
+    fontWeight: 700
   },
   periodSelector: {
     display: 'flex',
@@ -2784,14 +2873,14 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: 6,
-    color: '#4a90a4',
+    color: '#374151',
     fontWeight: 500
   },
   legendLine: {
     display: 'flex',
     alignItems: 'center',
     gap: 6,
-    color: '#c41e3a',
+    color: '#dc2626',
     fontWeight: 500
   },
   yearLabelsContainer: {
