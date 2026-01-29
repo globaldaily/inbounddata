@@ -2038,7 +2038,22 @@ export default function App() {
   
   // 트렌드 데이터는 하드코딩 사용 (API 호출 절감)
   const trendData = TREND_DATA;
-
+  
+useEffect(() => {
+    const sendHeight = () => {
+      const height = document.documentElement.scrollHeight;
+      window.parent.postMessage({ type: 'setHeight', height }, '*');
+    };
+    sendHeight();
+    window.addEventListener('resize', sendHeight);
+    const observer = new MutationObserver(sendHeight);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      window.removeEventListener('resize', sendHeight);
+      observer.disconnect();
+    };
+  }, []);
+  
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
