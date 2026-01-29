@@ -2041,18 +2041,27 @@ export default function App() {
   
 useEffect(() => {
     const sendHeight = () => {
-      const height = document.documentElement.scrollHeight;
-      window.parent.postMessage({ type: 'setHeight', height }, '*');
+      requestAnimationFrame(() => {
+        const height = document.body.scrollHeight;
+        window.parent.postMessage({ type: 'setHeight', height }, '*');
+      });
     };
-    sendHeight();
+    
+    // 탭 변경 후 약간의 딜레이 후 높이 측정
+    const timer = setTimeout(sendHeight, 200);
+    
     window.addEventListener('resize', sendHeight);
-    const observer = new MutationObserver(sendHeight);
+    const observer = new MutationObserver(() => {
+      setTimeout(sendHeight, 100);
+    });
     observer.observe(document.body, { childList: true, subtree: true });
+    
     return () => {
+      clearTimeout(timer);
       window.removeEventListener('resize', sendHeight);
       observer.disconnect();
     };
-  }, []);
+  }, [activeTab, loading]);
   
   useEffect(() => {
     const loadData = async () => {
