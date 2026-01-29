@@ -2048,11 +2048,11 @@ useEffect(() => {
     };
     
     // 탭 변경 후 약간의 딜레이 후 높이 측정
-    const timer = setTimeout(sendHeight, 200);
+    const timer = setTimeout(sendHeight, 500);
     
     window.addEventListener('resize', sendHeight);
     const observer = new MutationObserver(() => {
-      setTimeout(sendHeight, 100);
+      setTimeout(sendHeight, 300);
     });
     observer.observe(document.body, { childList: true, subtree: true });
     
