@@ -2062,6 +2062,18 @@ useEffect(() => {
       observer.disconnect();
     };
   }, [activeTab, loading]);
+
+  useEffect(() => {
+  const handleRequest = (e) => {
+    if (e.data?.type === 'requestHeight') {
+      const height = document.body.scrollHeight;
+      window.parent.postMessage({ type: 'setHeight', height }, '*');
+    }
+  };
+  
+  window.addEventListener('message', handleRequest);
+  return () => window.removeEventListener('message', handleRequest);
+}, []);
   
   useEffect(() => {
     const loadData = async () => {
