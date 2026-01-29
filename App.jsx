@@ -2401,7 +2401,8 @@ const styles = {
   },
   stickyTabs: {
     display: 'flex',
-    gap: 4
+    gap: 4,
+    alignItems: 'flex-start'
   },
   stickyTab: {
     padding: '10px 18px',
