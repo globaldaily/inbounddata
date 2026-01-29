@@ -854,11 +854,12 @@ const KPICard = ({ label, value, unit, change, note }) => (
       {value}<span style={styles.kpiUnit}>{unit}</span>
     </div>
     {change && (
-      <div style={{ ...styles.kpiChange, color: change.isPositive ? '#16a34a' : '#c41e3a' }}>
-        <span style={styles.changeArrow}>{change.isPositive ? '↑' : '↓'}</span>
-        {change.isPositive ? '+' : ''}{change.percent.toFixed(1)}% 前年比
-      </div>
-    )}
+  <div style={{ ...styles.kpiChange, color: change.isPositive ? '#16a34a' : '#c41e3a' }}>
+    <span style={styles.changeArrow}>{change.isPositive ? '▲' : '▼'}</span>
+    <span style={styles.changePercent}>{change.isPositive ? '+' : ''}{change.percent.toFixed(1)}%</span>
+    <span style={styles.changeLabel}>前年比</span>
+  </div>
+)}
     {note && <div style={styles.kpiNote}>{note}</div>}
   </div>
 );
@@ -2611,10 +2612,10 @@ const styles = {
     fontWeight: 500
   },
   kpiValue: {
-    fontSize: 'clamp(32px, 5vw, 40px)',
-    fontWeight: 800,
-    letterSpacing: '-0.02em'
-  },
+  fontSize: 'clamp(36px, 5vw, 44px)',
+  fontWeight: 800,
+  letterSpacing: '-0.02em'
+},
   kpiUnit: {
     fontSize: 16,
     fontWeight: 500,
@@ -2622,15 +2623,25 @@ const styles = {
     marginLeft: 6
   },
   kpiChange: {
-    fontSize: 12,
-    marginTop: 6,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4
-  },
-  changeArrow: {
-    fontWeight: 700
-  },
+  fontSize: 13,
+  marginTop: 8,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6
+},
+changeArrow: {
+  fontSize: 11,
+  fontWeight: 700
+},
+changePercent: {
+  fontSize: 15,
+  fontWeight: 700
+},
+changeLabel: {
+  fontSize: 12,
+  color: '#6b7280',
+  marginLeft: 2
+},
   kpiNote: {
     fontSize: 11,
     color: '#a0aec0',
