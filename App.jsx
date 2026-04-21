@@ -932,43 +932,95 @@ const ConsumptionDonut = ({ data, label, topN = 15 }) => {
 
   if (!chartData.length) return null;
 
+  // Inline label — inside top 5 segments (name + amount + %)
+  const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, name, value, percent, index }) => {
+    if (index >= 5) return null;
+    if (percent < 0.04) return null;
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.55;
+    const cos = Math.cos(-midAngle * RADIAN);
+    const sin = Math.sin(-midAngle * RADIAN);
+    const x = cx + radius * cos;
+    const y = cy + radius * sin;
+    return (
+      <g>
+        <text x={x} y={y - 12} textAnchor="middle"
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                fill: '#fff',
+                fontFamily: T.sans,
+                letterSpacing: '-0.01em',
+                paintOrder: 'stroke',
+                stroke: 'rgba(0,0,0,0.18)',
+                strokeWidth: 0.6,
+              }}>
+          {name}
+        </text>
+        <text x={x} y={y + 2} textAnchor="middle"
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                fill: '#fff',
+                fontFamily: T.mono,
+                fontVariantNumeric: 'tabular-nums',
+                paintOrder: 'stroke',
+                stroke: 'rgba(0,0,0,0.18)',
+                strokeWidth: 0.6,
+              }}>
+          {formatOku(value)}億
+        </text>
+        <text x={x} y={y + 15} textAnchor="middle"
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                fill: 'rgba(255,255,255,0.9)',
+                fontFamily: T.mono,
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+          {(percent * 100).toFixed(1)}%
+        </text>
+      </g>
+    );
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      {/* Period kicker */}
-      <div style={{
-        fontSize: 11,
-        fontWeight: 700,
-        color: T.muted,
-        textTransform: 'uppercase',
-        letterSpacing: '0.12em',
-        marginBottom: 4,
-      }}>
-        {label}
+      {/* Period title — prominent */}
+      <div style={{ textAlign: 'center', marginBottom: 14 }}>
+        <div style={{
+          fontSize: 20,
+          fontWeight: 700,
+          color: T.inkDark,
+          letterSpacing: '-0.01em',
+          lineHeight: 1.1,
+        }}>
+          {label}
+        </div>
+        <div style={{
+          fontSize: 10,
+          color: T.faint,
+          marginTop: 6,
+          letterSpacing: '0.05em',
+        }}>
+          セグメントにカーソルを合わせると詳細表示
+        </div>
       </div>
 
-      {/* Hover hint */}
-      <div style={{
-        fontSize: 10,
-        color: T.faint,
-        marginBottom: 12,
-        letterSpacing: '0.05em',
-      }}>
-        各セグメントにカーソルを合わせると詳細表示
-      </div>
-
-      {/* Pie chart — large, clean, interactive */}
-      <div style={{ position: 'relative', width: '100%', height: 520 }}>
+      {/* Pie chart */}
+      <div style={{ position: 'relative', width: '100%', height: 500 }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
             <Pie
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius={110}
-              outerRadius={200}
+              innerRadius={105}
+              outerRadius={195}
               paddingAngle={0.5}
               dataKey="value"
               labelLine={false}
+              label={renderLabel}
               isAnimationActive={false}
             >
               {chartData.map((entry, i) => (
@@ -995,7 +1047,7 @@ const ConsumptionDonut = ({ data, label, topN = 15 }) => {
             総消費額
           </div>
           <div style={{
-            fontSize: 34,
+            fontSize: 30,
             fontWeight: 700,
             color: T.inkDark,
             fontVariantNumeric: 'tabular-nums',
