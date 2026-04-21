@@ -35,6 +35,15 @@ const T = {
     '欧米豪':     '#44403c',
     'その他':     '#a8a29e',
   },
+  // Expense category palette (distinct hues, muted saturation)
+  expense: {
+    accommodation: '#0f766e',  // deep teal — water/rest
+    food:          '#9a3412',  // burnt orange — warmth of food
+    transport:     '#166534',  // forest green — movement/nature
+    entertainment: '#7e22ce',  // deep violet — culture/leisure
+    shopping:      '#b91c1c',  // brand red — commerce
+    other:         '#78716c',  // neutral stone
+  },
   sans: "'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif",
   mono: "'JetBrains Mono', 'SF Mono', ui-monospace, monospace",
 };
@@ -229,7 +238,7 @@ const useIframeHeight = (rootRef, ...deps) => {
       const h = measure();
       if (h > 0 && Math.abs(h - lastH) > 4) {
         lastH = h;
-        window.parent.postMessage({ type: 'setHeight', height: h }, '*');
+        window.parent.postMessage({ type: 'setHeight', source: 'spending-dashboard', height: h }, '*');
       }
     };
 
@@ -274,7 +283,7 @@ const useIframeHeight = (rootRef, ...deps) => {
       if (!el) return;
       const h = Math.ceil(el.getBoundingClientRect().height);
       if (h > 0) {
-        window.parent.postMessage({ type: 'setHeight', height: h }, '*');
+        window.parent.postMessage({ type: 'setHeight', source: 'spending-dashboard', height: h }, '*');
       }
     }, ms));
     return () => timers.forEach(clearTimeout);
@@ -1673,12 +1682,12 @@ const CompositionTab = ({ data, prev, sheets }) => {
   const overallStack = useMemo(() => {
     if (!totalRow) return [];
     const cats = [
-      { key: 'accommodation', label: '宿泊費', color: '#1c1917' },
-      { key: 'food', label: '飲食費', color: '#44403c' },
-      { key: 'transport', label: '交通費', color: '#78716c' },
-      { key: 'entertainment', label: '娯楽等', color: '#a8a29e' },
-      { key: 'shopping', label: '買物代', color: T.accent },
-      { key: 'other', label: 'その他', color: '#d6d3d1' },
+      { key: 'accommodation', label: '宿泊費', color: T.expense.accommodation },
+      { key: 'food',          label: '飲食費', color: T.expense.food },
+      { key: 'transport',     label: '交通費', color: T.expense.transport },
+      { key: 'entertainment', label: '娯楽等', color: T.expense.entertainment },
+      { key: 'shopping',      label: '買物代', color: T.expense.shopping },
+      { key: 'other',         label: 'その他', color: T.expense.other },
     ];
     return cats.map(c => ({
       ...c,
@@ -1758,12 +1767,12 @@ const CompositionTab = ({ data, prev, sheets }) => {
         />
         <div style={cmpStyles.stackLegend}>
           {[
-            { label: '宿泊', color: '#1c1917' },
-            { label: '飲食', color: '#44403c' },
-            { label: '交通', color: '#78716c' },
-            { label: '娯楽', color: '#a8a29e' },
-            { label: '買物', color: T.accent },
-            { label: 'その他', color: '#d6d3d1' },
+            { label: '宿泊',   color: T.expense.accommodation },
+            { label: '飲食',   color: T.expense.food },
+            { label: '交通',   color: T.expense.transport },
+            { label: '娯楽',   color: T.expense.entertainment },
+            { label: '買物',   color: T.expense.shopping },
+            { label: 'その他', color: T.expense.other },
           ].map(l => (
             <div key={l.label} style={cmpStyles.legendItem}>
               <span style={{ width: 12, height: 12, backgroundColor: l.color }} />
@@ -1779,12 +1788,12 @@ const CompositionTab = ({ data, prev, sheets }) => {
                 <span style={{ fontSize: 13, color: T.ink, fontWeight: 500 }}>{s.country}</span>
               </div>
               <div style={cmpStyles.stackBars}>
-                <div style={{ width: `${s.acc}%`, backgroundColor: '#1c1917' }} />
-                <div style={{ width: `${s.food}%`, backgroundColor: '#44403c' }} />
-                <div style={{ width: `${s.trans}%`, backgroundColor: '#78716c' }} />
-                <div style={{ width: `${s.ent}%`, backgroundColor: '#a8a29e' }} />
-                <div style={{ width: `${s.shop}%`, backgroundColor: T.accent }} />
-                <div style={{ width: `${s.oth}%`, backgroundColor: '#d6d3d1' }} />
+                <div style={{ width: `${s.acc}%`,  backgroundColor: T.expense.accommodation }} />
+                <div style={{ width: `${s.food}%`, backgroundColor: T.expense.food }} />
+                <div style={{ width: `${s.trans}%`,backgroundColor: T.expense.transport }} />
+                <div style={{ width: `${s.ent}%`,  backgroundColor: T.expense.entertainment }} />
+                <div style={{ width: `${s.shop}%`, backgroundColor: T.expense.shopping }} />
+                <div style={{ width: `${s.oth}%`,  backgroundColor: T.expense.other }} />
               </div>
               <div style={cmpStyles.stackTotal}>
                 <BigNum value={formatOku(s.total)} unit="億" size="md" />
