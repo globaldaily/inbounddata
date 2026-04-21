@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ComposedChart, Line,
@@ -210,29 +210,32 @@ const mergeData = (expense, visitor) => {
 };
 
 // ============================================================
-// iframe HEIGHT (ResizeObserver-based, stable)
+// iframe HEIGHT (ResizeObserver on root ref - accurate, stable)
 // ============================================================
-const useIframeHeight = (...deps) => {
-  // One-time setup: ResizeObserver watches body size only
+const useIframeHeight = (rootRef, ...deps) => {
+  // One-time setup: ResizeObserver watches the root element directly
   useEffect(() => {
     let raf;
     let lastH = 0;
     const send = () => {
       if (raf) cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        const h = Math.max(
-          document.documentElement.scrollHeight,
-          document.body.scrollHeight
-        );
-        if (Math.abs(h - lastH) > 4) {
+        const el = rootRef.current;
+        if (!el) return;
+        // Use getBoundingClientRect for accurate rendered height
+        const h = Math.ceil(el.getBoundingClientRect().height);
+        if (h > 0 && Math.abs(h - lastH) > 4) {
           lastH = h;
           window.parent.postMessage({ type: 'setHeight', height: h }, '*');
         }
       });
     };
 
+    const el = rootRef.current;
+    if (!el) return;
+
     const ro = new ResizeObserver(send);
-    ro.observe(document.body);
+    ro.observe(el);
 
     const onMsg = (e) => { if (e.data?.type === 'requestHeight') send(); };
     window.addEventListener('message', onMsg);
@@ -247,12 +250,15 @@ const useIframeHeight = (...deps) => {
       window.removeEventListener('resize', send);
       window.removeEventListener('load', send);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Explicit re-broadcast on tab/period changes (after render settles)
   useEffect(() => {
     const timers = [200, 500, 1000].map(ms => setTimeout(() => {
-      const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+      const el = rootRef.current;
+      if (!el) return;
+      const h = Math.ceil(el.getBoundingClientRect().height);
       window.parent.postMessage({ type: 'setHeight', height: h }, '*');
     }, ms));
     return () => timers.forEach(clearTimeout);
@@ -2212,8 +2218,11 @@ export default function App() {
 
   const sheets = useMemo(() => resolveSheets(period), [period]);
 
+  // Ref on root element for accurate height measurement
+  const rootRef = useRef(null);
+
   // Stable iframe height with explicit re-broadcast on tab/period change
-  useIframeHeight(activeTab, period, loading, expanded);
+  useIframeHeight(rootRef, activeTab, period, loading, expanded);
 
   // Data fetch
   useEffect(() => {
@@ -2304,7 +2313,7 @@ export default function App() {
   }, [data, prev]);
 
   return (
-    <div style={appStyles.root}>
+    <div ref={rootRef} style={appStyles.root}>
       <HeroStrip sheets={sheets} kpi={kpi} loading={loading} />
       <StickyNav period={period} setPeriod={setPeriod} activeTab={activeTab} setActiveTab={setActiveTab} />
 
