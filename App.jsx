@@ -28,12 +28,12 @@ const T = {
   accent: '#b91c1c',      // brand red
   positive: '#166534',    // muted green
   negative: '#b91c1c',    // red
-  // Region palette (muted, editorial)
+  // Region palette — neutral gray scale (color carries no judgement, only grouping)
   region: {
-    '東アジア':   '#1c1917',
-    '東南アジア': '#b91c1c',
-    '欧米豪':     '#44403c',
-    'その他':     '#a8a29e',
+    '東アジア':   '#1c1917',  // darkest — biggest market
+    '東南アジア': '#57534e',  // dark gray
+    '欧米豪':     '#a8a29e',  // medium gray
+    'その他':     '#d6d3d1',  // light gray
   },
   // Expense category palette (distinct hues, muted saturation)
   expense: {
@@ -1357,6 +1357,38 @@ const OverviewTab = ({ data, prev, sheets }) => {
             title="国別 TOP 10"
             subtitle={`${sheets?.periodLabel} 消費額上位`}
           />
+          {/* Region color legend — color is grouping only, not value judgement */}
+          <div style={{
+            display: 'flex',
+            gap: 14,
+            flexWrap: 'wrap',
+            paddingBottom: 12,
+            marginBottom: 12,
+            borderBottom: `1px solid ${T.lineSoft}`,
+          }}>
+            <span style={{
+              fontSize: 10,
+              fontWeight: 600,
+              color: T.muted,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              marginRight: 4,
+            }}>
+              地域
+            </span>
+            {Object.entries(T.region).map(([r, c]) => (
+              <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{
+                  width: 14,
+                  height: 6,
+                  background: c,
+                  borderRadius: 1,
+                  display: 'inline-block',
+                }} />
+                <span style={{ fontSize: 11, color: T.ink, fontWeight: 500 }}>{r}</span>
+              </div>
+            ))}
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {top10.map((c, i) => {
               const region = getRegion(c.country);
@@ -1521,7 +1553,69 @@ const TrendChart = ({ data, highlightLabel }) => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+        gap: 12,
+        flexWrap: 'wrap',
+      }}>
+        {/* Year color legend */}
+        <div style={{
+          display: 'flex',
+          gap: 12,
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}>
+          <span style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: T.muted,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+          }}>
+            年度
+          </span>
+          {[
+            { y: '2023', c: '#475569' },
+            { y: '2024', c: '#0f766e' },
+            { y: '2025', c: '#6d28d9' },
+          ].map(({ y, c }) => (
+            <div key={y} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{
+                width: 12,
+                height: 10,
+                background: c,
+                borderRadius: 1,
+                display: 'inline-block',
+              }} />
+              <span style={{
+                fontSize: 11,
+                color: T.ink,
+                fontWeight: 500,
+                fontFamily: T.mono,
+              }}>{y}</span>
+            </div>
+          ))}
+          {highlightLabel && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{
+                width: 12,
+                height: 10,
+                background: '#b91c1c',
+                borderRadius: 1,
+                display: 'inline-block',
+              }} />
+              <span style={{
+                fontSize: 11,
+                color: '#b91c1c',
+                fontWeight: 700,
+                fontFamily: T.mono,
+              }}>今期</span>
+            </div>
+          )}
+        </div>
         <div style={trStyles.toggle}>
           {[
             { id: 'total', label: '消費額' },
@@ -1537,6 +1631,17 @@ const TrendChart = ({ data, highlightLabel }) => {
             >{m.label}</button>
           ))}
         </div>
+      </div>
+
+      {/* Hover hint */}
+      <div style={{
+        fontSize: 10,
+        color: T.faint,
+        marginBottom: 8,
+        letterSpacing: '0.05em',
+        textAlign: 'right',
+      }}>
+        各バーにカーソルを合わせると詳細を表示
       </div>
       <ResponsiveContainer width="100%" height={280}>
         <ComposedChart data={data} margin={{ top: 24, right: 16, left: 8, bottom: 36 }}>
@@ -1597,12 +1702,13 @@ const TrendChart = ({ data, highlightLabel }) => {
               {data.map((d, i) => {
                 const yy = d.label.split('/')[0];
                 const isHighlight = highlightLabel && d.label === highlightLabel;
-                const fill = isHighlight ? T.accent
-                  : yy === '26' ? T.inkDark
-                  : yy === '25' ? T.inkDark
-                  : yy === '24' ? T.muted
-                  : T.faint;
-                return <Cell key={i} fill={fill} fillOpacity={isHighlight ? 1 : 0.85} />;
+                // Distinct hues per year — same chroma/value tone for editorial balance
+                const fill = isHighlight ? '#b91c1c'           // accent red — current quarter
+                  : yy === '26' ? '#7e22ce'                    // purple (future quarters of '26)
+                  : yy === '25' ? '#6d28d9'                    // deep purple
+                  : yy === '24' ? '#0f766e'                    // teal
+                  : '#475569';                                  // slate (oldest = 23)
+                return <Cell key={i} fill={fill} fillOpacity={isHighlight ? 1 : 0.92} />;
               })}
             </Bar>
           ) : (
