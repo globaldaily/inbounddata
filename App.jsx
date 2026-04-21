@@ -862,24 +862,15 @@ const COUNTRY_COLORS = {
 };
 const colorOf = (c) => COUNTRY_COLORS[c] || '#a8a29e';
 
-// Consumption Pie — PDF-style donut with labels + full country legend table
+// Consumption Pie — PDF-style donut with labels (country + amount + %)
 const ConsumptionDonut = ({ data, label, topN = 10 }) => {
-  const { chartData, allList, total } = useMemo(() => {
-    if (!data?.length) return { chartData: [], allList: [], total: 0 };
+  const { chartData, total } = useMemo(() => {
+    if (!data?.length) return { chartData: [], total: 0 };
     const filtered = data
       .filter(d => d.country !== '全国籍・地域' && d.total > 0)
       .sort((a, b) => b.total - a.total);
     const totalSum = filtered.reduce((s, d) => s + d.total, 0);
 
-    // Full legend list (all countries)
-    const allList = filtered.map(d => ({
-      country: d.country,
-      total: d.total,
-      pct: totalSum ? (d.total / totalSum) * 100 : 0,
-      color: colorOf(d.country),
-    }));
-
-    // Pie chart data — top N individually, rest grouped as その他
     const top = filtered.slice(0, topN);
     const rest = filtered.slice(topN);
     const restSum = rest.reduce((s, d) => s + d.total, 0);
@@ -887,14 +878,14 @@ const ConsumptionDonut = ({ data, label, topN = 10 }) => {
     if (restSum > 0) {
       chartData.push({ name: 'その他', value: restSum, color: '#a8a29e' });
     }
-    return { chartData, allList, total: totalSum };
+    return { chartData, total: totalSum };
   }, [data, topN]);
 
   if (!chartData.length) return null;
 
-  // External label renderer — PDF style with leader line
+  // External label — name on top, amount + % below (PDF style)
   const renderLabel = ({ cx, cy, midAngle, outerRadius, name, value, percent }) => {
-    if (percent < 0.025) return null; // hide labels for <2.5% (shown in legend table instead)
+    if (percent < 0.02) return null;
     const RADIAN = Math.PI / 180;
     const lineStart = outerRadius + 2;
     const lineMid   = outerRadius + 14;
@@ -917,23 +908,22 @@ const ConsumptionDonut = ({ data, label, topN = 10 }) => {
         </text>
         <text x={tx} y={ty + 9} textAnchor={anchor}
               style={{ fontSize: 11, fill: T.muted, fontFamily: T.mono, fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-          {(percent * 100).toFixed(1)}%
+          {formatOku(value)}億 · {(percent * 100).toFixed(1)}%
         </text>
       </g>
     );
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {/* Period label */}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      {/* Period kicker */}
       <div style={{
         fontSize: 11,
         fontWeight: 700,
         color: T.muted,
         textTransform: 'uppercase',
         letterSpacing: '0.12em',
-        marginBottom: 8,
-        textAlign: 'center',
+        marginBottom: 4,
       }}>
         {label}
       </div>
@@ -941,13 +931,13 @@ const ConsumptionDonut = ({ data, label, topN = 10 }) => {
       {/* Pie chart */}
       <div style={{ position: 'relative', width: '100%', height: 460 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart margin={{ top: 50, right: 90, bottom: 50, left: 90 }}>
+          <PieChart margin={{ top: 50, right: 110, bottom: 50, left: 110 }}>
             <Pie
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius={70}
-              outerRadius={130}
+              innerRadius={72}
+              outerRadius={128}
               paddingAngle={0.5}
               dataKey="value"
               labelLine={false}
@@ -986,66 +976,123 @@ const ConsumptionDonut = ({ data, label, topN = 10 }) => {
           <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>億円</div>
         </div>
       </div>
+    </div>
+  );
+};
 
-      {/* Legend table — every country with color dot, amount, and percentage */}
+// YoY comparison table — side panel next to the pie
+const ConsumptionComparisonTable = ({ current, previous, currentLabel, prevLabel }) => {
+  const rows = useMemo(() => {
+    if (!current?.length) return [];
+    const prevMap = {};
+    (previous || []).forEach(p => { prevMap[p.country] = p; });
+    return current
+      .filter(d => d.country !== '全国籍・地域' && d.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .map(d => {
+        const pv = prevMap[d.country]?.total || 0;
+        const yoy = pv > 0 ? ((d.total - pv) / pv) * 100 : null;
+        return {
+          country: d.country,
+          current: d.total,
+          prev: pv,
+          yoy,
+          color: colorOf(d.country),
+        };
+      });
+  }, [current, previous]);
+
+  if (!rows.length) return null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {/* Kicker */}
       <div style={{
-        marginTop: 16,
-        borderTop: `1px solid ${T.line}`,
-        paddingTop: 10,
+        fontSize: 11,
+        fontWeight: 700,
+        color: T.muted,
+        textTransform: 'uppercase',
+        letterSpacing: '0.12em',
+        marginBottom: 4,
+        textAlign: 'left',
       }}>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '14px 1fr auto auto',
-          gap: 10,
-          fontSize: 10,
-          fontWeight: 600,
-          color: T.muted,
-          textTransform: 'uppercase',
-          letterSpacing: '0.1em',
-          paddingBottom: 8,
-          borderBottom: `1px solid ${T.lineSoft}`,
-        }}>
-          <span></span>
-          <span>国籍・地域</span>
-          <span style={{ textAlign: 'right' }}>金額</span>
-          <span style={{ textAlign: 'right', minWidth: 44 }}>構成比</span>
-        </div>
-        {allList.map((d) => (
-          <div key={d.country} style={{
+        前年同期比較
+      </div>
+
+      {/* Header */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '12px minmax(80px, 1.1fr) 72px 72px 70px',
+        gap: 10,
+        alignItems: 'center',
+        fontSize: 10,
+        fontWeight: 600,
+        color: T.muted,
+        textTransform: 'uppercase',
+        letterSpacing: '0.1em',
+        paddingBottom: 10,
+        borderBottom: `2px solid ${T.inkDark}`,
+        marginTop: 8,
+      }}>
+        <span></span>
+        <span>国籍・地域</span>
+        <span style={{ textAlign: 'right' }}>{currentLabel}</span>
+        <span style={{ textAlign: 'right' }}>{prevLabel}</span>
+        <span style={{ textAlign: 'right' }}>YoY</span>
+      </div>
+
+      {/* Rows */}
+      <div style={{ flex: 1 }}>
+        {rows.map(r => (
+          <div key={r.country} style={{
             display: 'grid',
-            gridTemplateColumns: '14px 1fr auto auto',
+            gridTemplateColumns: '12px minmax(80px, 1.1fr) 72px 72px 70px',
             gap: 10,
             alignItems: 'center',
-            padding: '6px 0',
+            padding: '8px 0',
             fontSize: 12,
             borderBottom: `1px solid ${T.lineSoft}`,
           }}>
             <span style={{
               width: 10,
               height: 10,
-              backgroundColor: d.color,
+              backgroundColor: r.color,
               borderRadius: 2,
               display: 'inline-block',
             }} />
-            <span style={{ fontWeight: 600, color: T.inkDark }}>{d.country}</span>
-            <span style={{
-              fontFamily: T.mono,
-              fontVariantNumeric: 'tabular-nums',
-              color: T.ink,
-              fontWeight: 600,
-              textAlign: 'right',
-            }}>
-              {formatOku(d.total)}<span style={{ color: T.muted, fontSize: 10, marginLeft: 2 }}>億</span>
-            </span>
+            <span style={{ fontWeight: 600, color: T.inkDark }}>{r.country}</span>
             <span style={{
               fontFamily: T.mono,
               fontVariantNumeric: 'tabular-nums',
               color: T.inkDark,
               fontWeight: 700,
               textAlign: 'right',
-              minWidth: 44,
             }}>
-              {d.pct.toFixed(1)}%
+              {formatOku(r.current)}
+              <span style={{ color: T.muted, fontSize: 10, marginLeft: 2, fontWeight: 500 }}>億</span>
+            </span>
+            <span style={{
+              fontFamily: T.mono,
+              fontVariantNumeric: 'tabular-nums',
+              color: T.muted,
+              fontWeight: 500,
+              textAlign: 'right',
+            }}>
+              {r.prev > 0 ? formatOku(r.prev) : '—'}
+              {r.prev > 0 && <span style={{ fontSize: 10, marginLeft: 2 }}>億</span>}
+            </span>
+            <span style={{
+              fontFamily: T.mono,
+              fontVariantNumeric: 'tabular-nums',
+              fontWeight: 700,
+              textAlign: 'right',
+              color: r.yoy === null
+                ? T.faint
+                : r.yoy >= 0 ? T.positive : T.negative,
+            }}>
+              {r.yoy === null
+                ? '—'
+                : `${r.yoy >= 0 ? '+' : ''}${r.yoy.toFixed(1)}%`}
             </span>
           </div>
         ))}
@@ -1100,9 +1147,19 @@ const ConsumptionPieSection = ({ data, prev, sheets }) => {
           )
         }
       />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }} className="pie-grid">
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 32,
+        alignItems: 'start',
+      }} className="pie-grid">
         <ConsumptionDonut data={data} label={periodLabel} />
-        <ConsumptionDonut data={prev} label={prevLabel} />
+        <ConsumptionComparisonTable
+          current={data}
+          previous={prev}
+          currentLabel={periodLabel}
+          prevLabel={prevLabel}
+        />
       </div>
     </Card>
   );
