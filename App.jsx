@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ComposedChart, Line,
-  ScatterChart, Scatter, ZAxis, Cell
+  ScatterChart, Scatter, ZAxis, Cell,
+  PieChart, Pie
 } from 'recharts';
 
 // ============================================================
@@ -210,56 +211,71 @@ const mergeData = (expense, visitor) => {
 };
 
 // ============================================================
-// iframe HEIGHT (ResizeObserver on root ref - accurate, stable)
+// iframe HEIGHT (ResizeObserver on root ref, debounced for stability)
 // ============================================================
 const useIframeHeight = (rootRef, ...deps) => {
-  // One-time setup: ResizeObserver watches the root element directly
   useEffect(() => {
     let raf;
+    let debounceTimer;
     let lastH = 0;
-    const send = () => {
+
+    const measure = () => {
+      const el = rootRef.current;
+      if (!el) return 0;
+      return Math.ceil(el.getBoundingClientRect().height);
+    };
+
+    const broadcast = () => {
+      const h = measure();
+      if (h > 0 && Math.abs(h - lastH) > 4) {
+        lastH = h;
+        window.parent.postMessage({ type: 'setHeight', height: h }, '*');
+      }
+    };
+
+    // Debounced send: wait 80ms for Recharts resize cascades to settle
+    const schedule = () => {
       if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const el = rootRef.current;
-        if (!el) return;
-        // Use getBoundingClientRect for accurate rendered height
-        const h = Math.ceil(el.getBoundingClientRect().height);
-        if (h > 0 && Math.abs(h - lastH) > 4) {
-          lastH = h;
-          window.parent.postMessage({ type: 'setHeight', height: h }, '*');
-        }
-      });
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        raf = requestAnimationFrame(broadcast);
+      }, 80);
     };
 
     const el = rootRef.current;
     if (!el) return;
 
-    const ro = new ResizeObserver(send);
+    const ro = new ResizeObserver(schedule);
     ro.observe(el);
 
-    const onMsg = (e) => { if (e.data?.type === 'requestHeight') send(); };
+    const onMsg = (e) => { if (e.data?.type === 'requestHeight') broadcast(); };
     window.addEventListener('message', onMsg);
-    window.addEventListener('resize', send);
-    window.addEventListener('load', send);
+    window.addEventListener('resize', schedule);
+    window.addEventListener('load', schedule);
 
-    send();
+    // Initial broadcast (not debounced)
+    broadcast();
+
     return () => {
       ro.disconnect();
       if (raf) cancelAnimationFrame(raf);
+      clearTimeout(debounceTimer);
       window.removeEventListener('message', onMsg);
-      window.removeEventListener('resize', send);
-      window.removeEventListener('load', send);
+      window.removeEventListener('resize', schedule);
+      window.removeEventListener('load', schedule);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Explicit re-broadcast on tab/period changes (after render settles)
+  // Explicit re-broadcast on tab/period/expanded changes
   useEffect(() => {
-    const timers = [200, 500, 1000].map(ms => setTimeout(() => {
+    const timers = [100, 400, 900].map(ms => setTimeout(() => {
       const el = rootRef.current;
       if (!el) return;
       const h = Math.ceil(el.getBoundingClientRect().height);
-      window.parent.postMessage({ type: 'setHeight', height: h }, '*');
+      if (h > 0) {
+        window.parent.postMessage({ type: 'setHeight', height: h }, '*');
+      }
     }, ms));
     return () => timers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -654,6 +670,218 @@ const navStyles = {
 // ============================================================
 // TAB 1: 概観 (Overview) - Big picture, 1-screen summary
 // ============================================================
+// Country color palette for pie chart - editorial tone, region-based hues
+const COUNTRY_COLORS = {
+  // 東アジア (dark warm grays)
+  '中国':   '#1c1917',
+  '韓国':   '#57534e',
+  '台湾':   '#78716c',
+  '香港':   '#a8a29e',
+  // 欧米豪 (blues/purples)
+  '米国':          '#1e3a8a',
+  'オーストラリア': '#2563eb',
+  'カナダ':        '#60a5fa',
+  '英国':          '#312e81',
+  'ドイツ':        '#4338ca',
+  'フランス':      '#6366f1',
+  'イタリア':      '#818cf8',
+  'スペイン':      '#a5b4fc',
+  'ロシア':        '#7c3aed',
+  'メキシコ':      '#3b82f6',
+  // 東南アジア (warm reds)
+  'タイ':         '#b91c1c',
+  'シンガポール': '#dc2626',
+  'マレーシア':   '#ef4444',
+  'インドネシア': '#f87171',
+  'フィリピン':   '#fca5a5',
+  'ベトナム':     '#991b1b',
+  // その他 (earth tones)
+  'インド':       '#92400e',
+  '中東':         '#a16207',
+  '北欧':         '#854d0e',
+  'その他':       '#d6d3d1',
+};
+const colorOf = (c) => COUNTRY_COLORS[c] || '#a8a29e';
+
+// Consumption Pie — PDF-style donut with top-N labels
+const ConsumptionDonut = ({ data, label, totalLabel, topN = 8 }) => {
+  const chartData = useMemo(() => {
+    if (!data?.length) return [];
+    const filtered = data
+      .filter(d => d.country !== '全国籍・地域' && d.total > 0)
+      .sort((a, b) => b.total - a.total);
+    const top = filtered.slice(0, topN);
+    const rest = filtered.slice(topN);
+    const restSum = rest.reduce((s, d) => s + d.total, 0);
+    const result = top.map(d => ({ name: d.country, value: d.total, color: colorOf(d.country) }));
+    if (restSum > 0) {
+      result.push({ name: 'その他', value: restSum, color: colorOf('その他') });
+    }
+    return result;
+  }, [data, topN]);
+
+  const total = useMemo(() => chartData.reduce((s, d) => s + d.value, 0), [chartData]);
+
+  if (!chartData.length) return null;
+
+  // External label renderer - PDF style
+  const renderLabel = ({ cx, cy, midAngle, outerRadius, name, value, percent, index }) => {
+    const show = percent >= 0.03; // hide labels for <3%
+    if (!show) return null;
+    const RADIAN = Math.PI / 180;
+    const lineStart = outerRadius + 2;
+    const lineEnd = outerRadius + 16;
+    const textOffset = outerRadius + 22;
+    const cos = Math.cos(-midAngle * RADIAN);
+    const sin = Math.sin(-midAngle * RADIAN);
+    const x1 = cx + lineStart * cos;
+    const y1 = cy + lineStart * sin;
+    const x2 = cx + lineEnd * cos;
+    const y2 = cy + lineEnd * sin;
+    const tx = cx + textOffset * cos;
+    const ty = cy + textOffset * sin;
+    const anchor = cos >= 0 ? 'start' : 'end';
+
+    return (
+      <g>
+        <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={T.faint} strokeWidth={1} />
+        <text x={tx} y={ty - 4} textAnchor={anchor} style={{ fontSize: 10, fontWeight: 700, fill: T.ink, fontFamily: T.sans }}>
+          {name}
+        </text>
+        <text x={tx} y={ty + 8} textAnchor={anchor} style={{ fontSize: 9, fill: T.muted, fontFamily: T.mono, fontVariantNumeric: 'tabular-nums' }}>
+          {formatOku(value)}億 · {(percent * 100).toFixed(1)}%
+        </text>
+      </g>
+    );
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{
+        fontSize: 11,
+        fontWeight: 700,
+        color: T.muted,
+        textTransform: 'uppercase',
+        letterSpacing: '0.12em',
+        marginBottom: 4,
+      }}>
+        {label}
+      </div>
+      <div style={{ position: 'relative', width: '100%', height: 380 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart margin={{ top: 40, right: 90, bottom: 40, left: 90 }}>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              innerRadius={65}
+              outerRadius={100}
+              paddingAngle={1}
+              dataKey="value"
+              labelLine={false}
+              label={renderLabel}
+              isAnimationActive={false}
+            >
+              {chartData.map((entry, i) => (
+                <Cell key={i} fill={entry.color} stroke="#fff" strokeWidth={2} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        {/* Center total */}
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          textAlign: 'center',
+          pointerEvents: 'none',
+        }}>
+          <div style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: '0.08em' }}>
+            総消費額
+          </div>
+          <div style={{
+            fontSize: 22,
+            fontWeight: 700,
+            color: T.inkDark,
+            fontVariantNumeric: 'tabular-nums',
+            letterSpacing: '-0.02em',
+            marginTop: 2,
+          }}>
+            {formatOku(total)}
+          </div>
+          <div style={{ fontSize: 10, color: T.muted, marginTop: 1 }}>億円</div>
+        </div>
+      </div>
+      {totalLabel && (
+        <div style={{
+          fontSize: 11,
+          color: T.muted,
+          marginTop: 4,
+          fontFamily: T.mono,
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          {totalLabel}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ConsumptionPieSection = ({ data, prev, sheets }) => {
+  const periodLabel = sheets?.periodLabel || '';
+  const prevLabel = useMemo(() => {
+    if (!sheets?.period) return '';
+    if (sheets.period.type === 'quarter') {
+      return `${parseInt(sheets.period.year) - 1} Q${sheets.period.q}`;
+    }
+    return `${parseInt(sheets.period.year) - 1}`;
+  }, [sheets]);
+
+  const totalCurrent = useMemo(() => {
+    const t = data?.find(d => d.country === '全国籍・地域');
+    return t?.total || 0;
+  }, [data]);
+  const totalPrev = useMemo(() => {
+    const t = prev?.find(d => d.country === '全国籍・地域');
+    return t?.total || 0;
+  }, [prev]);
+  const chgPct = totalPrev > 0 ? ((totalCurrent - totalPrev) / totalPrev) * 100 : 0;
+
+  return (
+    <Card>
+      <SectionTitle
+        kicker="Country Breakdown"
+        title="国別 消費額構成"
+        subtitle={`${periodLabel} 対 ${prevLabel} 同期比較`}
+        aside={
+          totalPrev > 0 && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                前年同期比
+              </div>
+              <div style={{
+                fontSize: 20,
+                fontWeight: 700,
+                color: chgPct >= 0 ? T.positive : T.negative,
+                fontVariantNumeric: 'tabular-nums',
+                letterSpacing: '-0.02em',
+                marginTop: 2,
+              }}>
+                {chgPct >= 0 ? '+' : ''}{chgPct.toFixed(1)}%
+              </div>
+            </div>
+          )
+        }
+      />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }} className="pie-grid">
+        <ConsumptionDonut data={data} label={periodLabel} />
+        <ConsumptionDonut data={prev} label={prevLabel} />
+      </div>
+    </Card>
+  );
+};
+
 const OverviewTab = ({ data, prev, sheets }) => {
   const top10 = useMemo(() => {
     if (!data?.length) return [];
@@ -704,6 +932,9 @@ const OverviewTab = ({ data, prev, sheets }) => {
         />
         <TrendChart data={TREND_DATA} highlightLabel={sheets?.period.type === 'quarter' ? '26/Q1' : null} />
       </Card>
+
+      {/* COUNTRY BREAKDOWN PIE - current vs prev year */}
+      <ConsumptionPieSection data={data} prev={prev} sheets={sheets} />
 
       {/* TOP COUNTRIES (left) + REGIONAL (right) */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 24 }} className="two-col">
@@ -2253,6 +2484,11 @@ export default function App() {
     return () => { cancel = true; };
   }, [sheets]);
 
+  // Reset expanded country when tab changes
+  useEffect(() => {
+    setExpanded(null);
+  }, [activeTab]);
+
   // Sales data (on expand)
   useEffect(() => {
     if (!expanded) return;
@@ -2464,6 +2700,10 @@ sheet.textContent = `
     }
     /* Market share: stack donut + list */
     .share-grid {
+      grid-template-columns: 1fr !important;
+    }
+    /* Pie section: stack current + prev */
+    .pie-grid {
       grid-template-columns: 1fr !important;
     }
   }
