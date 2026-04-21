@@ -862,7 +862,56 @@ const COUNTRY_COLORS = {
 };
 const colorOf = (c) => COUNTRY_COLORS[c] || '#a8a29e';
 
-// Consumption Pie — PDF-style donut with labels (country + amount + %)
+// Custom tooltip for hover over pie segments
+const PieHoverTooltip = ({ active, payload, total }) => {
+  if (!active || !payload?.length) return null;
+  const d = payload[0];
+  const pct = total ? (d.value / total) * 100 : 0;
+  return (
+    <div style={{
+      backgroundColor: T.inkDark,
+      color: '#fff',
+      padding: '10px 14px',
+      borderRadius: 3,
+      fontSize: 12,
+      boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+      pointerEvents: 'none',
+      fontFamily: T.sans,
+      minWidth: 140,
+    }}>
+      <div style={{
+        fontSize: 12,
+        fontWeight: 700,
+        marginBottom: 6,
+        letterSpacing: '0.02em',
+      }}>
+        {d.name}
+      </div>
+      <div style={{
+        fontSize: 20,
+        fontWeight: 700,
+        fontVariantNumeric: 'tabular-nums',
+        letterSpacing: '-0.02em',
+        lineHeight: 1,
+      }}>
+        {formatOku(d.value)}
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginLeft: 3, fontWeight: 500 }}>億円</span>
+      </div>
+      <div style={{
+        fontSize: 11,
+        color: 'rgba(255,255,255,0.75)',
+        marginTop: 4,
+        fontFamily: T.mono,
+        fontVariantNumeric: 'tabular-nums',
+        letterSpacing: '0.04em',
+      }}>
+        構成比 {pct.toFixed(1)}%
+      </div>
+    </div>
+  );
+};
+
+// Consumption Pie — clean donut with interactive hover tooltip
 const ConsumptionDonut = ({ data, label, topN = 15 }) => {
   const { chartData, total } = useMemo(() => {
     if (!data?.length) return { chartData: [], total: 0 };
@@ -883,37 +932,6 @@ const ConsumptionDonut = ({ data, label, topN = 15 }) => {
 
   if (!chartData.length) return null;
 
-  // External label — only shown for top 8 segments (others avoid overlap, data in side table)
-  const renderLabel = ({ cx, cy, midAngle, outerRadius, name, value, percent, index }) => {
-    if (index >= 8) return null;
-    const RADIAN = Math.PI / 180;
-    const lineStart = outerRadius + 2;
-    const lineMid   = outerRadius + 16;
-    const textOff   = outerRadius + 22;
-    const cos = Math.cos(-midAngle * RADIAN);
-    const sin = Math.sin(-midAngle * RADIAN);
-    const x1 = cx + lineStart * cos;
-    const y1 = cy + lineStart * sin;
-    const x2 = cx + lineMid * cos;
-    const y2 = cy + lineMid * sin;
-    const tx = cx + textOff * cos;
-    const ty = cy + textOff * sin;
-    const anchor = cos >= 0 ? 'start' : 'end';
-    return (
-      <g>
-        <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={T.faint} strokeWidth={1} />
-        <text x={tx} y={ty - 6} textAnchor={anchor}
-              style={{ fontSize: 13, fontWeight: 700, fill: T.inkDark, fontFamily: T.sans }}>
-          {name}
-        </text>
-        <text x={tx} y={ty + 10} textAnchor={anchor}
-              style={{ fontSize: 11, fill: T.muted, fontFamily: T.mono, fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-          {formatOku(value)}億 · {(percent * 100).toFixed(1)}%
-        </text>
-      </g>
-    );
-  };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       {/* Period kicker */}
@@ -928,26 +946,40 @@ const ConsumptionDonut = ({ data, label, topN = 15 }) => {
         {label}
       </div>
 
-      {/* Pie chart — enlarged */}
-      <div style={{ position: 'relative', width: '100%', height: 560 }}>
+      {/* Hover hint */}
+      <div style={{
+        fontSize: 10,
+        color: T.faint,
+        marginBottom: 12,
+        letterSpacing: '0.05em',
+      }}>
+        各セグメントにカーソルを合わせると詳細表示
+      </div>
+
+      {/* Pie chart — large, clean, interactive */}
+      <div style={{ position: 'relative', width: '100%', height: 520 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart margin={{ top: 60, right: 120, bottom: 60, left: 120 }}>
+          <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
             <Pie
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius={88}
-              outerRadius={160}
+              innerRadius={110}
+              outerRadius={200}
               paddingAngle={0.5}
               dataKey="value"
               labelLine={false}
-              label={renderLabel}
               isAnimationActive={false}
             >
               {chartData.map((entry, i) => (
                 <Cell key={i} fill={entry.color} stroke="#fff" strokeWidth={1.5} />
               ))}
             </Pie>
+            <Tooltip
+              content={<PieHoverTooltip total={total} />}
+              cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+              wrapperStyle={{ outline: 'none' }}
+            />
           </PieChart>
         </ResponsiveContainer>
         {/* Center total */}
@@ -963,7 +995,7 @@ const ConsumptionDonut = ({ data, label, topN = 15 }) => {
             総消費額
           </div>
           <div style={{
-            fontSize: 32,
+            fontSize: 34,
             fontWeight: 700,
             color: T.inkDark,
             fontVariantNumeric: 'tabular-nums',
