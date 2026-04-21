@@ -828,120 +828,134 @@ const HighlightsSection = ({ data, prev, sheets }) => {
   );
 };
 
-// Country color palette for pie chart - editorial tone, region-based hues
+// Country color palette — each country gets a distinct, recognizable hue
+// Tones are muted but saturated enough to read in small segments
 const COUNTRY_COLORS = {
-  // 東アジア (dark warm grays)
-  '中国':   '#1c1917',
-  '韓国':   '#57534e',
-  '台湾':   '#78716c',
-  '香港':   '#a8a29e',
-  // 欧米豪 (blues/purples)
-  '米国':          '#1e3a8a',
-  'オーストラリア': '#2563eb',
-  'カナダ':        '#60a5fa',
-  '英国':          '#312e81',
-  'ドイツ':        '#4338ca',
-  'フランス':      '#6366f1',
-  'イタリア':      '#818cf8',
-  'スペイン':      '#a5b4fc',
-  'ロシア':        '#7c3aed',
-  'メキシコ':      '#3b82f6',
-  // 東南アジア (warm reds)
-  'タイ':         '#b91c1c',
-  'シンガポール': '#dc2626',
-  'マレーシア':   '#ef4444',
-  'インドネシア': '#f87171',
-  'フィリピン':   '#fca5a5',
-  'ベトナム':     '#991b1b',
-  // その他 (earth tones)
-  'インド':       '#92400e',
-  '中東':         '#a16207',
-  '北欧':         '#854d0e',
-  'その他':       '#d6d3d1',
+  // Top-tier markets (strongest presence)
+  '中国':   '#991b1b',   // deep crimson
+  '韓国':   '#1e3a8a',   // navy
+  '台湾':   '#c2410c',   // burnt orange
+  '米国':   '#0c4a6e',   // dark teal-blue
+  '香港':   '#15803d',   // jade green
+  // Asia-Pacific (warm mid-range)
+  'オーストラリア': '#0891b2', // cyan
+  'タイ':           '#a16207', // golden brown
+  'シンガポール':   '#65a30d', // olive green
+  'マレーシア':     '#be185d', // magenta
+  'インドネシア':   '#7c2d12', // umber
+  'フィリピン':     '#db2777', // rose
+  'ベトナム':       '#166534', // forest green
+  'インド':         '#ca8a04', // mustard yellow
+  // Europe (cool tones, distinct hues)
+  '英国':     '#312e81', // indigo
+  'ドイツ':   '#374151', // charcoal
+  'フランス': '#6d28d9', // purple
+  'イタリア': '#86198f', // plum
+  'スペイン': '#b45309', // terracotta
+  'ロシア':   '#4c1d95', // deep violet
+  // Americas / other
+  'カナダ':   '#0284c7', // sky blue
+  'メキシコ': '#9a3412', // dark coral
+  '中東':     '#854d0e', // bronze
+  '北欧':     '#475569', // slate gray
+  'その他':   '#a8a29e', // neutral stone
 };
 const colorOf = (c) => COUNTRY_COLORS[c] || '#a8a29e';
 
-// Consumption Pie — PDF-style donut with top-N labels
-const ConsumptionDonut = ({ data, label, totalLabel, topN = 8 }) => {
-  const chartData = useMemo(() => {
-    if (!data?.length) return [];
+// Consumption Pie — PDF-style donut with labels + full country legend table
+const ConsumptionDonut = ({ data, label, topN = 10 }) => {
+  const { chartData, allList, total } = useMemo(() => {
+    if (!data?.length) return { chartData: [], allList: [], total: 0 };
     const filtered = data
       .filter(d => d.country !== '全国籍・地域' && d.total > 0)
       .sort((a, b) => b.total - a.total);
+    const totalSum = filtered.reduce((s, d) => s + d.total, 0);
+
+    // Full legend list (all countries)
+    const allList = filtered.map(d => ({
+      country: d.country,
+      total: d.total,
+      pct: totalSum ? (d.total / totalSum) * 100 : 0,
+      color: colorOf(d.country),
+    }));
+
+    // Pie chart data — top N individually, rest grouped as その他
     const top = filtered.slice(0, topN);
     const rest = filtered.slice(topN);
     const restSum = rest.reduce((s, d) => s + d.total, 0);
-    const result = top.map(d => ({ name: d.country, value: d.total, color: colorOf(d.country) }));
+    const chartData = top.map(d => ({ name: d.country, value: d.total, color: colorOf(d.country) }));
     if (restSum > 0) {
-      result.push({ name: 'その他', value: restSum, color: colorOf('その他') });
+      chartData.push({ name: 'その他', value: restSum, color: '#a8a29e' });
     }
-    return result;
+    return { chartData, allList, total: totalSum };
   }, [data, topN]);
-
-  const total = useMemo(() => chartData.reduce((s, d) => s + d.value, 0), [chartData]);
 
   if (!chartData.length) return null;
 
-  // External label renderer - PDF style
-  const renderLabel = ({ cx, cy, midAngle, outerRadius, name, value, percent, index }) => {
-    const show = percent >= 0.03; // hide labels for <3%
-    if (!show) return null;
+  // External label renderer — PDF style with leader line
+  const renderLabel = ({ cx, cy, midAngle, outerRadius, name, value, percent }) => {
+    if (percent < 0.025) return null; // hide labels for <2.5% (shown in legend table instead)
     const RADIAN = Math.PI / 180;
     const lineStart = outerRadius + 2;
-    const lineEnd = outerRadius + 16;
-    const textOffset = outerRadius + 22;
+    const lineMid   = outerRadius + 14;
+    const textOff   = outerRadius + 20;
     const cos = Math.cos(-midAngle * RADIAN);
     const sin = Math.sin(-midAngle * RADIAN);
     const x1 = cx + lineStart * cos;
     const y1 = cy + lineStart * sin;
-    const x2 = cx + lineEnd * cos;
-    const y2 = cy + lineEnd * sin;
-    const tx = cx + textOffset * cos;
-    const ty = cy + textOffset * sin;
+    const x2 = cx + lineMid * cos;
+    const y2 = cy + lineMid * sin;
+    const tx = cx + textOff * cos;
+    const ty = cy + textOff * sin;
     const anchor = cos >= 0 ? 'start' : 'end';
-
     return (
       <g>
         <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={T.faint} strokeWidth={1} />
-        <text x={tx} y={ty - 4} textAnchor={anchor} style={{ fontSize: 10, fontWeight: 700, fill: T.ink, fontFamily: T.sans }}>
+        <text x={tx} y={ty - 6} textAnchor={anchor}
+              style={{ fontSize: 12, fontWeight: 700, fill: T.inkDark, fontFamily: T.sans }}>
           {name}
         </text>
-        <text x={tx} y={ty + 8} textAnchor={anchor} style={{ fontSize: 9, fill: T.muted, fontFamily: T.mono, fontVariantNumeric: 'tabular-nums' }}>
-          {formatOku(value)}億 · {(percent * 100).toFixed(1)}%
+        <text x={tx} y={ty + 9} textAnchor={anchor}
+              style={{ fontSize: 11, fill: T.muted, fontFamily: T.mono, fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+          {(percent * 100).toFixed(1)}%
         </text>
       </g>
     );
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {/* Period label */}
       <div style={{
         fontSize: 11,
         fontWeight: 700,
         color: T.muted,
         textTransform: 'uppercase',
         letterSpacing: '0.12em',
-        marginBottom: 4,
+        marginBottom: 8,
+        textAlign: 'center',
       }}>
         {label}
       </div>
-      <div style={{ position: 'relative', width: '100%', height: 380 }}>
+
+      {/* Pie chart */}
+      <div style={{ position: 'relative', width: '100%', height: 460 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart margin={{ top: 40, right: 90, bottom: 40, left: 90 }}>
+          <PieChart margin={{ top: 50, right: 90, bottom: 50, left: 90 }}>
             <Pie
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius={65}
-              outerRadius={100}
-              paddingAngle={1}
+              innerRadius={70}
+              outerRadius={130}
+              paddingAngle={0.5}
               dataKey="value"
               labelLine={false}
               label={renderLabel}
               isAnimationActive={false}
             >
               {chartData.map((entry, i) => (
-                <Cell key={i} fill={entry.color} stroke="#fff" strokeWidth={2} />
+                <Cell key={i} fill={entry.color} stroke="#fff" strokeWidth={1.5} />
               ))}
             </Pie>
           </PieChart>
@@ -955,33 +969,87 @@ const ConsumptionDonut = ({ data, label, totalLabel, topN = 8 }) => {
           textAlign: 'center',
           pointerEvents: 'none',
         }}>
-          <div style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: '0.08em' }}>
+          <div style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             総消費額
           </div>
           <div style={{
-            fontSize: 22,
+            fontSize: 28,
             fontWeight: 700,
             color: T.inkDark,
             fontVariantNumeric: 'tabular-nums',
             letterSpacing: '-0.02em',
-            marginTop: 2,
+            marginTop: 4,
+            lineHeight: 1,
           }}>
             {formatOku(total)}
           </div>
-          <div style={{ fontSize: 10, color: T.muted, marginTop: 1 }}>億円</div>
+          <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>億円</div>
         </div>
       </div>
-      {totalLabel && (
+
+      {/* Legend table — every country with color dot, amount, and percentage */}
+      <div style={{
+        marginTop: 16,
+        borderTop: `1px solid ${T.line}`,
+        paddingTop: 10,
+      }}>
         <div style={{
-          fontSize: 11,
+          display: 'grid',
+          gridTemplateColumns: '14px 1fr auto auto',
+          gap: 10,
+          fontSize: 10,
+          fontWeight: 600,
           color: T.muted,
-          marginTop: 4,
-          fontFamily: T.mono,
-          fontVariantNumeric: 'tabular-nums',
+          textTransform: 'uppercase',
+          letterSpacing: '0.1em',
+          paddingBottom: 8,
+          borderBottom: `1px solid ${T.lineSoft}`,
         }}>
-          {totalLabel}
+          <span></span>
+          <span>国籍・地域</span>
+          <span style={{ textAlign: 'right' }}>金額</span>
+          <span style={{ textAlign: 'right', minWidth: 44 }}>構成比</span>
         </div>
-      )}
+        {allList.map((d) => (
+          <div key={d.country} style={{
+            display: 'grid',
+            gridTemplateColumns: '14px 1fr auto auto',
+            gap: 10,
+            alignItems: 'center',
+            padding: '6px 0',
+            fontSize: 12,
+            borderBottom: `1px solid ${T.lineSoft}`,
+          }}>
+            <span style={{
+              width: 10,
+              height: 10,
+              backgroundColor: d.color,
+              borderRadius: 2,
+              display: 'inline-block',
+            }} />
+            <span style={{ fontWeight: 600, color: T.inkDark }}>{d.country}</span>
+            <span style={{
+              fontFamily: T.mono,
+              fontVariantNumeric: 'tabular-nums',
+              color: T.ink,
+              fontWeight: 600,
+              textAlign: 'right',
+            }}>
+              {formatOku(d.total)}<span style={{ color: T.muted, fontSize: 10, marginLeft: 2 }}>億</span>
+            </span>
+            <span style={{
+              fontFamily: T.mono,
+              fontVariantNumeric: 'tabular-nums',
+              color: T.inkDark,
+              fontWeight: 700,
+              textAlign: 'right',
+              minWidth: 44,
+            }}>
+              {d.pct.toFixed(1)}%
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -1556,23 +1624,23 @@ const CountryRow = ({ country, rank, prev, expanded, onToggle, salesData, loadin
         className="country-row"
       >
         <span style={ctryStyles.rowRank}>{String(rank).padStart(2, '0')}</span>
-        {prevRank && rankDiff !== 0 && (
-          <span
-            title={`前期 ${prevRank}位 → 今期 ${rank}位`}
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              fontFamily: T.mono,
-              color: rankDiff > 0 ? T.positive : T.negative,
-              marginLeft: -4,
-              marginRight: 4,
-              letterSpacing: '-0.02em',
-              minWidth: 20,
-            }}
-          >
-            {rankDiff > 0 ? '↑' : '↓'}{Math.abs(rankDiff)}
-          </span>
-        )}
+        <span
+          title={prevRank ? `前期 ${prevRank}位 → 今期 ${rank}位` : ''}
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            fontFamily: T.mono,
+            color: prevRank && rankDiff !== 0
+              ? (rankDiff > 0 ? T.positive : T.negative)
+              : T.faint,
+            letterSpacing: '-0.02em',
+            textAlign: 'left',
+          }}
+        >
+          {prevRank && rankDiff !== 0
+            ? `${rankDiff > 0 ? '↑' : '↓'}${Math.abs(rankDiff)}`
+            : '—'}
+        </span>
         <span style={ctryStyles.rowFlag}>{COUNTRY_FLAGS[country.country]}</span>
         <span style={{
           width: 2, height: 18, backgroundColor: T.region[region], marginRight: 6,
@@ -1709,7 +1777,7 @@ const ctryStyles = {
   list: { },
   row: {
     display: 'grid',
-    gridTemplateColumns: '32px 22px 6px 1fr auto 90px 20px',
+    gridTemplateColumns: '32px 32px 22px 6px 1fr auto 90px 20px',
     alignItems: 'center',
     gap: 10,
     padding: '14px 12px',
