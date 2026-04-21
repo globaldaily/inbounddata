@@ -863,7 +863,7 @@ const COUNTRY_COLORS = {
 const colorOf = (c) => COUNTRY_COLORS[c] || '#a8a29e';
 
 // Consumption Pie — PDF-style donut with labels (country + amount + %)
-const ConsumptionDonut = ({ data, label, topN = 10 }) => {
+const ConsumptionDonut = ({ data, label, topN = 15 }) => {
   const { chartData, total } = useMemo(() => {
     if (!data?.length) return { chartData: [], total: 0 };
     const filtered = data
@@ -883,13 +883,13 @@ const ConsumptionDonut = ({ data, label, topN = 10 }) => {
 
   if (!chartData.length) return null;
 
-  // External label — name on top, amount + % below (PDF style)
-  const renderLabel = ({ cx, cy, midAngle, outerRadius, name, value, percent }) => {
-    if (percent < 0.02) return null;
+  // External label — only shown for top 8 segments (others avoid overlap, data in side table)
+  const renderLabel = ({ cx, cy, midAngle, outerRadius, name, value, percent, index }) => {
+    if (index >= 8) return null;
     const RADIAN = Math.PI / 180;
     const lineStart = outerRadius + 2;
-    const lineMid   = outerRadius + 14;
-    const textOff   = outerRadius + 20;
+    const lineMid   = outerRadius + 16;
+    const textOff   = outerRadius + 22;
     const cos = Math.cos(-midAngle * RADIAN);
     const sin = Math.sin(-midAngle * RADIAN);
     const x1 = cx + lineStart * cos;
@@ -903,10 +903,10 @@ const ConsumptionDonut = ({ data, label, topN = 10 }) => {
       <g>
         <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={T.faint} strokeWidth={1} />
         <text x={tx} y={ty - 6} textAnchor={anchor}
-              style={{ fontSize: 12, fontWeight: 700, fill: T.inkDark, fontFamily: T.sans }}>
+              style={{ fontSize: 13, fontWeight: 700, fill: T.inkDark, fontFamily: T.sans }}>
           {name}
         </text>
-        <text x={tx} y={ty + 9} textAnchor={anchor}
+        <text x={tx} y={ty + 10} textAnchor={anchor}
               style={{ fontSize: 11, fill: T.muted, fontFamily: T.mono, fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
           {formatOku(value)}億 · {(percent * 100).toFixed(1)}%
         </text>
@@ -928,16 +928,16 @@ const ConsumptionDonut = ({ data, label, topN = 10 }) => {
         {label}
       </div>
 
-      {/* Pie chart */}
-      <div style={{ position: 'relative', width: '100%', height: 460 }}>
+      {/* Pie chart — enlarged */}
+      <div style={{ position: 'relative', width: '100%', height: 560 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart margin={{ top: 50, right: 110, bottom: 50, left: 110 }}>
+          <PieChart margin={{ top: 60, right: 120, bottom: 60, left: 120 }}>
             <Pie
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius={72}
-              outerRadius={128}
+              innerRadius={88}
+              outerRadius={160}
               paddingAngle={0.5}
               dataKey="value"
               labelLine={false}
@@ -963,7 +963,7 @@ const ConsumptionDonut = ({ data, label, topN = 10 }) => {
             総消費額
           </div>
           <div style={{
-            fontSize: 28,
+            fontSize: 32,
             fontWeight: 700,
             color: T.inkDark,
             fontVariantNumeric: 'tabular-nums',
@@ -973,15 +973,18 @@ const ConsumptionDonut = ({ data, label, topN = 10 }) => {
           }}>
             {formatOku(total)}
           </div>
-          <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>億円</div>
+          <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>億円</div>
         </div>
       </div>
     </div>
   );
 };
 
-// YoY comparison table — side panel next to the pie
+// YoY comparison table — side panel next to the pie (with expand toggle)
 const ConsumptionComparisonTable = ({ current, previous, currentLabel, prevLabel }) => {
+  const [expanded, setExpanded] = useState(false);
+  const INITIAL_COUNT = 10;
+
   const rows = useMemo(() => {
     if (!current?.length) return [];
     const prevMap = {};
@@ -1003,6 +1006,9 @@ const ConsumptionComparisonTable = ({ current, previous, currentLabel, prevLabel
   }, [current, previous]);
 
   if (!rows.length) return null;
+
+  const visibleRows = expanded ? rows : rows.slice(0, INITIAL_COUNT);
+  const hiddenCount = rows.length - INITIAL_COUNT;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -1043,7 +1049,7 @@ const ConsumptionComparisonTable = ({ current, previous, currentLabel, prevLabel
 
       {/* Rows */}
       <div style={{ flex: 1 }}>
-        {rows.map(r => (
+        {visibleRows.map(r => (
           <div key={r.country} style={{
             display: 'grid',
             gridTemplateColumns: '12px minmax(80px, 1.1fr) 72px 72px 70px',
@@ -1096,6 +1102,41 @@ const ConsumptionComparisonTable = ({ current, previous, currentLabel, prevLabel
             </span>
           </div>
         ))}
+
+        {/* Expand / collapse button */}
+        {hiddenCount > 0 && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            style={{
+              width: '100%',
+              marginTop: 10,
+              padding: '10px 12px',
+              background: 'transparent',
+              border: `1px solid ${T.line}`,
+              borderRadius: 3,
+              fontSize: 11,
+              fontWeight: 600,
+              color: T.ink,
+              fontFamily: T.sans,
+              letterSpacing: '0.04em',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = T.lineSoft;
+              e.currentTarget.style.borderColor = T.muted;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.borderColor = T.line;
+            }}
+          >
+            {expanded
+              ? '折り畳む ▲'
+              : `残り ${hiddenCount} ヶ国を表示 ▼`}
+          </button>
+        )}
       </div>
     </div>
   );
