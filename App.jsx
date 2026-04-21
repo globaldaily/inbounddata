@@ -34,7 +34,6 @@ const T = {
     '欧米豪':     '#44403c',
     'その他':     '#a8a29e',
   },
-  serif: "'Noto Serif JP', 'Playfair Display', Georgia, serif",
   sans: "'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif",
   mono: "'JetBrains Mono', 'SF Mono', ui-monospace, monospace",
 };
@@ -297,18 +296,19 @@ const BigNum = ({ value, unit, size = 'xl' }) => {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
       <span style={{
-        fontFamily: T.serif,
+        fontFamily: T.sans,
         fontSize: s.num,
         fontWeight: 700,
-        letterSpacing: '-0.03em',
-        color: T.inkDark,
+        letterSpacing: '-0.02em',
+        color: 'inherit',
         fontVariantNumeric: 'tabular-nums',
         lineHeight: 1,
       }}>{value}</span>
       {unit && <span style={{
         fontSize: s.unit,
         fontWeight: 500,
-        color: T.muted,
+        color: 'inherit',
+        opacity: 0.65,
         marginLeft: 2,
       }}>{unit}</span>}
     </span>
@@ -357,7 +357,7 @@ const SectionTitle = ({ title, subtitle, kicker, aside }) => (
         marginBottom: 6,
       }}>{kicker}</div>}
       <h2 style={{
-        fontFamily: T.serif,
+        fontFamily: T.sans,
         fontSize: 22,
         fontWeight: 700,
         color: T.inkDark,
@@ -459,7 +459,7 @@ const heroStyles = {
     flexWrap: 'wrap',
   },
   periodMain: {
-    fontFamily: T.serif,
+    fontFamily: T.sans,
     fontSize: 36,
     fontWeight: 700,
     letterSpacing: '-0.02em',
@@ -836,7 +836,7 @@ const ovStyles = {
     color: T.ink,
   },
   regValue: {
-    fontFamily: T.serif,
+    fontFamily: T.sans,
     fontSize: 18,
     fontWeight: 700,
     color: T.inkDark,
@@ -1205,7 +1205,7 @@ const ExpenseBreakdown = ({ country, prev }) => {
               </div>
               <div style={ctryStyles.breakdownValue}>
                 <span style={{
-                  fontFamily: T.serif,
+                  fontFamily: T.sans,
                   fontSize: 17,
                   fontWeight: 700,
                   color: T.inkDark,
@@ -1373,7 +1373,7 @@ const ctryStyles = {
     marginBottom: 4,
   },
   regionName: {
-    fontFamily: T.serif,
+    fontFamily: T.sans,
     fontSize: 16,
     fontWeight: 700,
     color: T.inkDark,
@@ -1497,7 +1497,7 @@ const CompositionTab = ({ data, prev, sheets }) => {
                   <span style={{ fontSize: 13, fontWeight: 500, color: T.ink }}>{s.label}</span>
                 </div>
                 <div style={{
-                  fontFamily: T.serif, fontSize: 22, fontWeight: 700, color: T.inkDark,
+                  fontFamily: T.sans, fontSize: 22, fontWeight: 700, color: T.inkDark,
                   fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
                 }}>
                   {s.share.toFixed(1)}<span style={{ fontSize: 13, color: T.muted, marginLeft: 2 }}>%</span>
@@ -1852,7 +1852,7 @@ const MarketShareSection = ({ data, sheets }) => {
           })}
           <circle cx="50" cy="50" r="26" fill={T.surface} />
           {hovered !== null && (
-            <text x="50" y="48" textAnchor="middle" style={{ fontSize: 9, fontWeight: 700, fill: T.inkDark, fontFamily: T.serif }}>
+            <text x="50" y="48" textAnchor="middle" style={{ fontSize: 9, fontWeight: 700, fill: T.inkDark, fontFamily: T.sans }}>
               {share[hovered].share.toFixed(1)}%
             </text>
           )}
@@ -1900,7 +1900,7 @@ const msStyles = {
   flag: { fontSize: 14 },
   country: { fontSize: 14, color: T.ink, fontWeight: 500 },
   pct: {
-    fontFamily: T.serif, fontSize: 18, fontWeight: 700,
+    fontFamily: T.sans, fontSize: 18, fontWeight: 700,
     color: T.inkDark, textAlign: 'right',
     fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em',
   },
@@ -2098,7 +2098,7 @@ const CompareSection = ({ data, prev, sheets }) => {
           <div key={i} style={csStyles.hdrCountry}>
             <span style={{ fontSize: 22 }}>{COUNTRY_FLAGS[d.country]}</span>
             <span style={{
-              fontFamily: T.serif, fontSize: 18, fontWeight: 700,
+              fontFamily: T.sans, fontSize: 18, fontWeight: 700,
               color: T.inkDark,
             }}>{d.country}</span>
           </div>
@@ -2119,7 +2119,7 @@ const CompareSection = ({ data, prev, sheets }) => {
                     backgroundColor: isMax ? '#f0fdf4' : 'transparent',
                   }}>
                     <span style={{
-                      fontFamily: T.serif, fontSize: 22, fontWeight: 700,
+                      fontFamily: T.sans, fontSize: 22, fontWeight: 700,
                       color: T.inkDark, fontVariantNumeric: 'tabular-nums',
                       letterSpacing: '-0.02em',
                     }}>{m.fmt(v)}</span>
@@ -2338,7 +2338,6 @@ export default function App() {
 
 const appStyles = {
   root: {
-    minHeight: '100vh',
     backgroundColor: T.bg,
     fontFamily: T.sans,
     color: T.ink,
@@ -2395,9 +2394,10 @@ const appStyles = {
 // Inject global styles (fonts, spinner keyframe, reset, responsive rules)
 const sheet = document.createElement('style');
 sheet.textContent = `
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Serif+JP:wght@500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
   * { box-sizing: border-box; }
-  body { margin: 0; background-color: ${T.bg}; }
+  html, body { margin: 0; padding: 0; background-color: ${T.bg}; }
+  body { min-height: 0; }
   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
   /* Scrollbar (webkit) */
