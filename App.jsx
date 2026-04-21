@@ -1,1586 +1,1222 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ComposedChart, Line,
   ScatterChart, Scatter, ZAxis, Cell
 } from 'recharts';
 
+// ============================================================
+// CONFIG
+// ============================================================
 const SHEET_ID = '1hF1Z-3LLgzzzFwc66xVqEXszNm3qSH8Xwl6DT01dQRs';
 const API_KEY = 'AIzaSyAs_UERCv_a4ZCfrZI2XvThGMFPFRkStO0';
 
-const REGION_GROUPS = {
-  '東アジア': ['韓国', '台湾', '香港', '中国'],
-  '東南アジア': ['タイ', 'シンガポール', 'マレーシア', 'インドネシア', 'フィリピン', 'ベトナム'],
-  '欧米豪': ['米国', 'カナダ', '英国', 'ドイツ', 'フランス', 'イタリア', 'スペイン', 'オーストラリア', 'ロシア'],
-  'その他': ['インド', 'その他']
-};
-
-// 국기 이모지 매핑
-const COUNTRY_FLAGS = {
-  '韓国': '🇰🇷',
-  '台湾': '🇹🇼',
-  '香港': '🇭🇰',
-  '中国': '🇨🇳',
-  'タイ': '🇹🇭',
-  'シンガポール': '🇸🇬',
-  'マレーシア': '🇲🇾',
-  'インドネシア': '🇮🇩',
-  'フィリピン': '🇵🇭',
-  'ベトナム': '🇻🇳',
-  '米国': '🇺🇸',
-  'カナダ': '🇨🇦',
-  '英国': '🇬🇧',
-  'ドイツ': '🇩🇪',
-  'フランス': '🇫🇷',
-  'イタリア': '🇮🇹',
-  'スペイン': '🇪🇸',
-  'オーストラリア': '🇦🇺',
-  'ロシア': '🇷🇺',
-  'インド': '🇮🇳',
-  'その他': '🌐'
-};
-
-const REGION_COLORS = {
-  '東アジア': '#1a1a1a',
-  '東南アジア': '#c41e3a',
-  '欧米豪': '#4a5568',
-  'その他': '#a0aec0'
+// ============================================================
+// DESIGN TOKENS
+// ============================================================
+const T = {
+  // Warm editorial palette - sophisticated, data-forward
+  bg: '#faf9f7',
+  surface: '#ffffff',
+  inkDark: '#0c0a09',
+  ink: '#1c1917',
+  muted: '#57534e',
+  faint: '#a8a29e',
+  line: '#e7e5e4',
+  lineSoft: '#f5f5f4',
+  accent: '#b91c1c',      // brand red
+  positive: '#166534',    // muted green
+  negative: '#b91c1c',    // red
+  // Region palette (muted, editorial)
+  region: {
+    '東アジア':   '#1c1917',
+    '東南アジア': '#b91c1c',
+    '欧米豪':     '#44403c',
+    'その他':     '#a8a29e',
+  },
+  serif: "'Noto Serif JP', 'Playfair Display', Georgia, serif",
+  sans: "'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif",
+  mono: "'JetBrains Mono', 'SF Mono', ui-monospace, monospace",
 };
 
 // ============================================================
-// 📊 트렌드 데이터 (하드코딩)
-// 새 분기 데이터 추가 시 여기에 1줄 추가하세요!
-// 형식: { label: 'YY/Q#', total: 소비액(억엔), perPerson: 객단가(만엔) }
-// 출처: 観光庁「訪日外国人消費動向調査」
+// CONSTANTS
+// ============================================================
+const REGION_GROUPS = {
+  '東アジア':   ['韓国', '台湾', '香港', '中国'],
+  '東南アジア': ['タイ', 'シンガポール', 'マレーシア', 'インドネシア', 'フィリピン', 'ベトナム'],
+  '欧米豪':     ['米国', 'カナダ', 'メキシコ', '英国', 'ドイツ', 'フランス', 'イタリア', 'スペイン', 'オーストラリア', 'ロシア', '北欧'],
+  'その他':     ['インド', '中東', 'その他'],
+};
+
+const COUNTRY_FLAGS = {
+  '韓国': '🇰🇷', '台湾': '🇹🇼', '香港': '🇭🇰', '中国': '🇨🇳',
+  'タイ': '🇹🇭', 'シンガポール': '🇸🇬', 'マレーシア': '🇲🇾', 'インドネシア': '🇮🇩',
+  'フィリピン': '🇵🇭', 'ベトナム': '🇻🇳', '米国': '🇺🇸', 'カナダ': '🇨🇦',
+  'メキシコ': '🇲🇽', '英国': '🇬🇧', 'ドイツ': '🇩🇪', 'フランス': '🇫🇷',
+  'イタリア': '🇮🇹', 'スペイン': '🇪🇸', 'オーストラリア': '🇦🇺', 'ロシア': '🇷🇺',
+  'インド': '🇮🇳', '北欧': '🇸🇪', '中東': '🇦🇪', 'その他': '—',
+};
+
+// ============================================================
+// PERIOD MODEL
+// ============================================================
+const PERIODS = [
+  { key: '2026Q1', label: "2026 Q1", type: 'quarter', year: '2026', q: '1', badge: '1次速報' },
+  { key: '2025',   label: '2025',    type: 'year',    year: '2025',            badge: '年間' },
+  { key: '2024',   label: '2024',    type: 'year',    year: '2024',            badge: '年間' },
+  { key: '2023',   label: '2023',    type: 'year',    year: '2023',            badge: '年間' },
+];
+
+const resolveSheets = (period) => {
+  const p = PERIODS.find(x => x.key === period);
+  if (!p) return null;
+
+  if (p.type === 'quarter') {
+    const prevYear = String(parseInt(p.year) - 1);
+    return {
+      period: p,
+      expense: `${p.year}_Q${p.q}_図表3`,
+      visitor: `${p.year}_Q${p.q}_図表4`,
+      prevExpense: `${prevYear}_Q${p.q}_図表3`,
+      prevVisitor: `${prevYear}_Q${p.q}_図表4`,
+      periodLabel: `${p.year}年 1-3月期`,
+      prevLabel: `${prevYear}年 同期`,
+      unit: '億円（四半期）',
+    };
+  }
+  const prev = String(parseInt(p.year) - 1);
+  return {
+    period: p,
+    expense: `${p.year}_年間_図表3`,
+    visitor: `${p.year}_年間_図表4`,
+    prevExpense: `${prev}_年間_図表3`,
+    prevVisitor: `${prev}_年間_図表4`,
+    periodLabel: `${p.year}年 年間`,
+    prevLabel: `${prev}年 年間`,
+    unit: '億円（年間）',
+  };
+};
+
+// ============================================================
+// TREND DATA (quarterly, hardcoded)
+// ※ 新しい四半期発表時はここに1行追加
 // ============================================================
 const TREND_DATA = [
-  // 2023年 (観光庁 確報値)
   { label: '23/Q1', total: 10103, perPerson: 21.1 },
   { label: '23/Q2', total: 12319, perPerson: 20.9 },
   { label: '23/Q3', total: 13801, perPerson: 20.9 },
   { label: '23/Q4', total: 16831, perPerson: 22.0 },
-  // 2024年 (観光庁 確報値)
   { label: '24/Q1', total: 17700, perPerson: 21.1 },
   { label: '24/Q2', total: 21402, perPerson: 23.9 },
   { label: '24/Q3', total: 19186, perPerson: 22.0 },
   { label: '24/Q4', total: 22969, perPerson: 23.6 },
-  // 2025年 (観光庁 確報値) - 新しい四半期発表時は以下に追加
   { label: '25/Q1', total: 22803, perPerson: 22.3 },
   { label: '25/Q2', total: 25043, perPerson: 23.7 },
   { label: '25/Q3', total: 21384, perPerson: 22.0 },
-  { label: '25/Q4', total: 25330, perPerson: 23.4 },
-  // ↓ 2026年 Q1 発表時はここに追加 ↓
+  { label: '25/Q4', total: 25319, perPerson: 23.4 },
+  { label: '26/Q1', total: 23378, perPerson: 22.1 }, // ← 2026 Q1 (1次速報)
 ];
 
+// ============================================================
+// UTILS
+// ============================================================
 const parseNumber = (str) => {
-  if (!str) return 0;
-  const cleaned = String(str).replace(/,/g, '').replace(/円/g, '').replace(/泊/g, '').replace(/人/g, '').replace(/%/g, '').trim();
+  if (str === null || str === undefined) return 0;
+  const cleaned = String(str).replace(/,/g, '').replace(/[円泊人%]/g, '').trim();
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : num;
 };
 
-const formatNumber = (num, decimals = 1) => {
-  if (num === null || num === undefined || isNaN(num)) return '—';
-  return num.toLocaleString('ja-JP', { maximumFractionDigits: decimals });
+const formatNum = (n, dec = 0) => {
+  if (n == null || isNaN(n)) return '—';
+  return n.toLocaleString('ja-JP', {
+    minimumFractionDigits: dec,
+    maximumFractionDigits: dec,
+  });
 };
 
-const formatChange = (current, previous) => {
-  if (!previous || previous === 0) return null;
-  const change = ((current - previous) / previous) * 100;
-  return { percent: change, isPositive: change >= 0 };
+const formatOku = (n, dec = 0) => {
+  // Format as 億円 (assumes input already in 億円)
+  if (n == null || isNaN(n)) return '—';
+  if (n >= 10000) return `${(n / 10000).toLocaleString('ja-JP', { maximumFractionDigits: 2 })}兆`;
+  return formatNum(n, dec);
 };
 
-const getRegionForCountry = (country) => {
-  for (const [region, countries] of Object.entries(REGION_GROUPS)) {
-    if (countries.includes(country)) return region;
+const pctChange = (cur, prev) => {
+  if (!prev || prev === 0) return null;
+  const v = ((cur - prev) / prev) * 100;
+  return { value: v, positive: v >= 0 };
+};
+
+const getRegion = (country) => {
+  for (const [r, arr] of Object.entries(REGION_GROUPS)) {
+    if (arr.includes(country)) return r;
   }
   return 'その他';
 };
 
-// ============================================================
-// 연도별 시계열 트렌드 컴포넌트
-// ============================================================
-const YearlyTrendChart = () => {
-  const [selectedMetric, setSelectedMetric] = useState('total');
-  
-  // 연도별 집계
-  const yearlyData = useMemo(() => {
-    const years = ['2023', '2024', '2025'];
-    return years.map(year => {
-      const prefix = year.slice(2) + '/';
-      const quarters = TREND_DATA.filter(d => d.label.startsWith(prefix));
-      const total = quarters.reduce((s, q) => s + q.total, 0);
-      const avgPerPerson = quarters.length > 0 
-        ? quarters.reduce((s, q) => s + q.perPerson, 0) / quarters.length 
-        : 0;
-      return { year, total, perPerson: avgPerPerson, quarters: quarters.length };
-    });
-  }, []);
-
-  // 분기별 데이터
-  const quarterlyData = TREND_DATA.map(d => ({
-    ...d,
-    year: '20' + d.label.split('/')[0],
-    quarter: d.label.split('/')[1]
-  }));
-
-  const maxTotal = Math.max(...yearlyData.map(d => d.total));
-  const maxPerPerson = Math.max(...yearlyData.map(d => d.perPerson));
-
-  return (
-    <div style={trendStyles.container}>
-      <div style={trendStyles.header}>
-        <div>
-          <h3 style={trendStyles.title}>年次推移</h3>
-          <p style={trendStyles.subtitle}>2023年〜2025年の消費動向トレンド</p>
-        </div>
-      </div>
-
-      {/* 연도별 요약 카드 */}
-      <div style={trendStyles.yearCards}>
-        {yearlyData.map((d, i) => {
-          const prevYear = i > 0 ? yearlyData[i - 1] : null;
-          const growth = prevYear ? ((d.total - prevYear.total) / prevYear.total) * 100 : null;
-          
-          return (
-            <div key={d.year} style={trendStyles.yearCard}>
-              <div style={trendStyles.yearLabel}>{d.year}年</div>
-              <div style={trendStyles.yearTotal}>
-                {formatNumber(d.total, 0)}<span style={trendStyles.yearUnit}>億円</span>
-              </div>
-              {growth !== null && (
-                <div style={{
-                  ...trendStyles.yearGrowth,
-                  color: growth >= 0 ? '#059669' : '#dc2626'
-                }}>
-                  前年比 {growth >= 0 ? '+' : ''}{growth.toFixed(1)}%
-                </div>
-              )}
-              <div style={trendStyles.yearBar}>
-                <div style={{
-                  ...trendStyles.yearBarFill,
-                  width: `${(d.total / maxTotal) * 100}%`,
-                  backgroundColor: d.year === '2025' ? '#1a1a1a' : d.year === '2024' ? '#6b7280' : '#d1d5db'
-                }} />
-              </div>
-              <div style={trendStyles.yearPerPerson}>
-                客単価 {d.perPerson.toFixed(1)}万円
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* 분기별 추이 그래프 */}
-      <div style={trendStyles.chartSection}>
-        <div style={trendStyles.chartHeader}>
-          <span style={trendStyles.chartLabel}>四半期別推移</span>
-          <div style={trendStyles.metricToggle}>
-            <button 
-              onClick={() => setSelectedMetric('total')}
-              style={{
-                ...trendStyles.toggleBtn,
-                ...(selectedMetric === 'total' ? trendStyles.toggleBtnActive : {})
-              }}
-            >
-              消費額
-            </button>
-            <button 
-              onClick={() => setSelectedMetric('perPerson')}
-              style={{
-                ...trendStyles.toggleBtn,
-                ...(selectedMetric === 'perPerson' ? trendStyles.toggleBtnActive : {})
-              }}
-            >
-              客単価
-            </button>
-          </div>
-        </div>
-        
-        <ResponsiveContainer width="100%" height={280}>
-          <ComposedChart data={quarterlyData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis 
-              dataKey="label" 
-              tick={{ fontSize: 12, fill: '#6b7280' }}
-              axisLine={{ stroke: '#d1d5db' }}
-            />
-            <YAxis 
-              tick={{ fontSize: 12, fill: '#6b7280' }}
-              axisLine={{ stroke: '#d1d5db' }}
-              tickFormatter={v => selectedMetric === 'total' ? `${(v/10000).toFixed(1)}兆` : `${v}万`}
-            />
-            <Tooltip 
-              content={({ payload, label }) => {
-                if (!payload?.[0]) return null;
-                const d = payload[0].payload;
-                return (
-                  <div style={trendStyles.tooltip}>
-                    <div style={trendStyles.tooltipTitle}>{label}</div>
-                    <div>消費額: {formatNumber(d.total, 0)}億円</div>
-                    <div>客単価: {d.perPerson.toFixed(1)}万円</div>
-                  </div>
-                );
-              }}
-            />
-            {selectedMetric === 'total' ? (
-              <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-                {quarterlyData.map((entry, i) => (
-                  <Cell 
-                    key={i} 
-                    fill={entry.year === '2025' ? '#1a1a1a' : entry.year === '2024' ? '#6b7280' : '#d1d5db'} 
-                  />
-                ))}
-              </Bar>
-            ) : (
-              <Line 
-                type="monotone" 
-                dataKey="perPerson" 
-                stroke="#dc2626" 
-                strokeWidth={3}
-                dot={{ fill: '#dc2626', r: 5 }}
-              />
-            )}
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* 범례 */}
-      <div style={trendStyles.legend}>
-        <div style={trendStyles.legendItem}>
-          <div style={{...trendStyles.legendDot, backgroundColor: '#1a1a1a'}} />
-          <span>2025年</span>
-        </div>
-        <div style={trendStyles.legendItem}>
-          <div style={{...trendStyles.legendDot, backgroundColor: '#6b7280'}} />
-          <span>2024年</span>
-        </div>
-        <div style={trendStyles.legendItem}>
-          <div style={{...trendStyles.legendDot, backgroundColor: '#d1d5db'}} />
-          <span>2023年</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const trendStyles = {
-  container: { backgroundColor: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', marginTop: 32 },
-  header: { marginBottom: 24 },
-  title: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: 0 },
-  subtitle: { fontSize: 14, color: '#6b7280', margin: '4px 0 0' },
-  yearCards: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginBottom: 32 },
-  yearCard: { padding: 20, backgroundColor: '#f9fafb', borderRadius: 8, textAlign: 'center' },
-  yearLabel: { fontSize: 14, fontWeight: 600, color: '#6b7280', marginBottom: 8 },
-  yearTotal: { fontSize: 28, fontWeight: 800, color: '#1a1a1a' },
-  yearUnit: { fontSize: 14, fontWeight: 500, color: '#6b7280', marginLeft: 4 },
-  yearGrowth: { fontSize: 14, fontWeight: 600, marginTop: 4 },
-  yearBar: { height: 8, backgroundColor: '#e5e7eb', borderRadius: 4, marginTop: 12, overflow: 'hidden' },
-  yearBarFill: { height: '100%', borderRadius: 4, transition: 'width 0.4s' },
-  yearPerPerson: { fontSize: 13, color: '#6b7280', marginTop: 8 },
-  chartSection: { marginTop: 24 },
-  chartHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  chartLabel: { fontSize: 15, fontWeight: 600, color: '#374151' },
-  metricToggle: { display: 'flex', gap: 4, backgroundColor: '#f3f4f6', padding: 4, borderRadius: 6 },
-  toggleBtn: { padding: '6px 12px', fontSize: 13, fontWeight: 500, border: 'none', borderRadius: 4, backgroundColor: 'transparent', color: '#6b7280', cursor: 'pointer' },
-  toggleBtnActive: { backgroundColor: '#fff', color: '#1a1a1a', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' },
-  tooltip: { backgroundColor: '#1a1a1a', color: '#fff', padding: 12, borderRadius: 6, fontSize: 13 },
-  tooltipTitle: { fontWeight: 700, marginBottom: 8 },
-  legend: { display: 'flex', justifyContent: 'center', gap: 24, marginTop: 16, paddingTop: 16, borderTop: '1px solid #e5e7eb' },
-  legendItem: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 },
-  legendDot: { width: 12, height: 12, borderRadius: 3 }
-};
+const delay = (ms) => new Promise(r => setTimeout(r, ms));
 
 // ============================================================
-// 📊 랭킹 분석 컴포넌트 (API 호출 없이 기존 데이터 활용)
+// DATA FETCHING
 // ============================================================
-const RankingAnalysis = ({ data, previousData }) => {
-  const analysis = useMemo(() => {
-    if (!data || data.length < 2) return null;
-    
-    const countries = data.filter(d => d.country !== '全国籍・地域' && d.country !== 'その他');
-    const prevMap = {};
-    previousData?.forEach(d => { prevMap[d.country] = d; });
-    
-    // 소비액 TOP 5
-    const byTotal = [...countries].sort((a, b) => b.total - a.total).slice(0, 5);
-    
-    // 1인당 지출 TOP 5
-    const byPerPerson = [...countries].sort((a, b) => b.perPerson - a.perPerson).slice(0, 5);
-    
-    // 방문자수 TOP 5
-    const byVisitors = [...countries].sort((a, b) => b.visitors - a.visitors).slice(0, 5);
-    
-    // 성장률 TOP 5 (전년 대비)
-    const withGrowth = countries.map(c => {
-      const prev = prevMap[c.country];
-      const growth = prev?.total ? ((c.total - prev.total) / prev.total) * 100 : 0;
-      return { ...c, growth };
-    }).filter(c => c.growth !== 0);
-    const byGrowth = [...withGrowth].sort((a, b) => b.growth - a.growth).slice(0, 5);
-    const byDecline = [...withGrowth].sort((a, b) => a.growth - b.growth).slice(0, 5);
-    
-    // 쇼핑 비율 TOP 5
-    const byShoppingRatio = countries.map(c => ({
-      ...c,
-      shopRatio: c.total ? (c.shopping / c.total) * 100 : 0
-    })).sort((a, b) => b.shopRatio - a.shopRatio).slice(0, 5);
-    
-    // 체류일수 TOP 5
-    const byNights = [...countries].filter(c => c.avgNights > 0).sort((a, b) => b.avgNights - a.avgNights).slice(0, 5);
-    
-    return { byTotal, byPerPerson, byVisitors, byGrowth, byDecline, byShoppingRatio, byNights };
-  }, [data, previousData]);
-
-  if (!analysis) return null;
-
-  const RankingCard = ({ title, items, valueKey, format, suffix = '', highlight = false }) => (
-    <div style={rankStyles.card}>
-      <div style={rankStyles.cardTitle}>{title}</div>
-      <div style={rankStyles.rankList}>
-        {items.map((item, idx) => (
-          <div key={item.country} style={rankStyles.rankItem}>
-            <span style={{
-              ...rankStyles.rankNum,
-              backgroundColor: idx === 0 ? '#1a1a1a' : idx === 1 ? '#4a5568' : idx === 2 ? '#718096' : '#e2e8f0',
-              color: idx < 3 ? '#fff' : '#64748b'
-            }}>{idx + 1}</span>
-            <span style={rankStyles.flag}>{COUNTRY_FLAGS[item.country] || '🌐'}</span>
-            <span style={rankStyles.countryName}>{item.country}</span>
-            <span style={{
-              ...rankStyles.value,
-              color: highlight && item[valueKey] < 0 ? '#dc2626' : highlight && item[valueKey] > 0 ? '#059669' : '#1a1a1a'
-            }}>
-              {highlight && item[valueKey] > 0 ? '+' : ''}{format(item[valueKey])}{suffix}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  return (
-    <div style={rankStyles.container}>
-      <h3 style={rankStyles.sectionTitle}>国別ランキング</h3>
-      <div style={rankStyles.grid}>
-        <RankingCard 
-          title="消費額" 
-          items={analysis.byTotal} 
-          valueKey="total" 
-          format={v => formatNumber(v, 0)} 
-          suffix="億円" 
-        />
-        <RankingCard 
-          title="客単価" 
-          items={analysis.byPerPerson} 
-          valueKey="perPerson" 
-          format={v => formatNumber(v / 10000, 1)} 
-          suffix="万円" 
-        />
-        <RankingCard 
-          title="訪日客数" 
-          items={analysis.byVisitors} 
-          valueKey="visitors" 
-          format={v => formatNumber(v / 10000, 0)} 
-          suffix="万人" 
-        />
-        <RankingCard 
-          title="成長率" 
-          items={analysis.byGrowth} 
-          valueKey="growth" 
-          format={v => v.toFixed(1)} 
-          suffix="%" 
-          highlight 
-        />
-        <RankingCard 
-          title="買物比率" 
-          items={analysis.byShoppingRatio} 
-          valueKey="shopRatio" 
-          format={v => v.toFixed(1)} 
-          suffix="%" 
-        />
-        <RankingCard 
-          title="平均泊数" 
-          items={analysis.byNights} 
-          valueKey="avgNights" 
-          format={v => v.toFixed(1)} 
-          suffix="泊" 
-        />
-      </div>
-    </div>
-  );
-};
-
-const rankStyles = {
-  container: { marginTop: 32 },
-  sectionTitle: { fontSize: 18, fontWeight: 700, marginBottom: 20, color: '#1a1a1a', borderBottom: '2px solid #1a1a1a', paddingBottom: 8, display: 'inline-block' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 },
-  card: { backgroundColor: '#fff', borderRadius: 8, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb' },
-  cardTitle: { fontSize: 15, fontWeight: 600, marginBottom: 16, color: '#374151', letterSpacing: '0.02em' },
-  rankList: { display: 'flex', flexDirection: 'column', gap: 10 },
-  rankItem: { display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 },
-  rankNum: { width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 },
-  flag: { fontSize: 18 },
-  countryName: { flex: 1, color: '#1a1a1a', fontWeight: 500 },
-  value: { fontWeight: 700, fontFamily: '"Inter", "Helvetica Neue", sans-serif', fontSize: 14 }
-};
-
-// ============================================================
-// 地域別 비교 컴포넌트
-// ============================================================
-const RegionComparison = ({ data, previousData }) => {
-  const regionData = useMemo(() => {
-    if (!data || data.length < 2) return [];
-    
-    const prevMap = {};
-    previousData?.forEach(d => { prevMap[d.country] = d; });
-    
-    return Object.entries(REGION_GROUPS).map(([region, countries]) => {
-      const regionCountries = data.filter(d => countries.includes(d.country));
-      const total = regionCountries.reduce((s, c) => s + (c.total || 0), 0);
-      const visitors = regionCountries.reduce((s, c) => s + (c.visitors || 0), 0);
-      const shopping = regionCountries.reduce((s, c) => s + (c.shopping || 0), 0);
-      
-      const prevTotal = countries.reduce((s, c) => s + (prevMap[c]?.total || 0), 0);
-      const growth = prevTotal ? ((total - prevTotal) / prevTotal) * 100 : 0;
-      
-      return {
-        region,
-        total,
-        visitors,
-        shopping,
-        shopRatio: total ? (shopping / total) * 100 : 0,
-        perPerson: visitors ? total / visitors * 100000000 : 0,
-        growth,
-        color: REGION_COLORS[region]
-      };
-    }).filter(r => r.total > 0);
-  }, [data, previousData]);
-
-  if (regionData.length === 0) return null;
-
-  const maxTotal = Math.max(...regionData.map(r => r.total));
-  const totalAll = regionData.reduce((s, r) => s + r.total, 0);
-
-  return (
-    <div style={regionStyles.container}>
-      <h3 style={regionStyles.sectionTitle}>地域別消費構成</h3>
-      <div style={regionStyles.grid}>
-        {regionData.map(r => (
-          <div key={r.region} style={regionStyles.card}>
-            <div style={regionStyles.header}>
-              <div style={{ ...regionStyles.regionIndicator, backgroundColor: r.color }} />
-              <div>
-                <div style={regionStyles.regionName}>{r.region}</div>
-                <div style={regionStyles.share}>シェア {((r.total / totalAll) * 100).toFixed(1)}%</div>
-              </div>
-            </div>
-            <div style={regionStyles.mainValue}>
-              {formatNumber(r.total, 0)}<span style={regionStyles.unit}>億円</span>
-            </div>
-            <div style={regionStyles.bar}>
-              <div style={{ ...regionStyles.barFill, width: `${(r.total / maxTotal) * 100}%`, backgroundColor: r.color }} />
-            </div>
-            <div style={regionStyles.statsGrid}>
-              <div style={regionStyles.statItem}>
-                <div style={regionStyles.statLabel}>訪日客数</div>
-                <div style={regionStyles.statValue}>{formatNumber(r.visitors / 10000, 0)}万人</div>
-              </div>
-              <div style={regionStyles.statItem}>
-                <div style={regionStyles.statLabel}>客単価</div>
-                <div style={regionStyles.statValue}>{formatNumber(r.perPerson / 10000, 1)}万円</div>
-              </div>
-              <div style={regionStyles.statItem}>
-                <div style={regionStyles.statLabel}>買物比率</div>
-                <div style={regionStyles.statValue}>{r.shopRatio.toFixed(1)}%</div>
-              </div>
-              <div style={regionStyles.statItem}>
-                <div style={regionStyles.statLabel}>前年比</div>
-                <div style={{ ...regionStyles.statValue, color: r.growth >= 0 ? '#059669' : '#dc2626' }}>
-                  {r.growth >= 0 ? '+' : ''}{r.growth.toFixed(1)}%
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const regionStyles = {
-  container: { marginTop: 32 },
-  sectionTitle: { fontSize: 18, fontWeight: 700, marginBottom: 20, color: '#1a1a1a', borderBottom: '2px solid #1a1a1a', paddingBottom: 8, display: 'inline-block' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 },
-  card: { backgroundColor: '#fff', borderRadius: 8, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb' },
-  header: { display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 },
-  regionIndicator: { width: 4, height: 40, borderRadius: 2 },
-  regionName: { fontSize: 16, fontWeight: 700, color: '#1a1a1a' },
-  share: { fontSize: 13, color: '#6b7280', marginTop: 2 },
-  mainValue: { fontSize: 32, fontWeight: 800, color: '#1a1a1a', letterSpacing: '-0.02em' },
-  unit: { fontSize: 16, fontWeight: 500, color: '#6b7280', marginLeft: 4 },
-  bar: { height: 8, backgroundColor: '#f3f4f6', borderRadius: 4, marginTop: 12, marginBottom: 20, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 4, transition: 'width 0.4s ease' },
-  statsGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
-  statItem: { },
-  statLabel: { fontSize: 12, color: '#6b7280', marginBottom: 4, fontWeight: 500 },
-  statValue: { fontSize: 15, fontWeight: 700, color: '#1a1a1a' }
-};
-
-// ============================================================
-// 費目別 국가 비교 컴포넌트
-// ============================================================
-const CategoryComparison = ({ data }) => {
-  const [selectedCategory, setSelectedCategory] = useState('shopping');
-  
-  const categories = [
-    { id: 'total', label: '総消費額' },
-    { id: 'accommodation', label: '宿泊費' },
-    { id: 'food', label: '飲食費' },
-    { id: 'shopping', label: '買物代' },
-    { id: 'transport', label: '交通費' },
-    { id: 'entertainment', label: '娯楽等' }
-  ];
-
-  const chartData = useMemo(() => {
-    if (!data || data.length < 2) return [];
-    return data
-      .filter(d => d.country !== '全国籍・地域' && d.country !== 'その他')
-      .map(d => ({
-        country: d.country,
-        flag: COUNTRY_FLAGS[d.country] || '🌐',
-        value: d[selectedCategory] || 0,
-        region: getRegionForCountry(d.country)
-      }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 10);
-  }, [data, selectedCategory]);
-
-  const maxValue = Math.max(...chartData.map(d => d.value));
-
-  return (
-    <div style={catStyles.container}>
-      <h3 style={catStyles.sectionTitle}>費目別 国別比較</h3>
-      <div style={catStyles.categoryTabs}>
-        {categories.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setSelectedCategory(cat.id)}
-            style={{
-              ...catStyles.catTab,
-              ...(selectedCategory === cat.id ? catStyles.catTabActive : {})
-            }}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
-      <div style={catStyles.chartContainer}>
-        {chartData.map((d, idx) => (
-          <div key={d.country} style={catStyles.barRow}>
-            <div style={catStyles.barLabel}>
-              <span style={{
-                ...catStyles.barRank,
-                backgroundColor: idx === 0 ? '#1a1a1a' : idx === 1 ? '#4a5568' : idx === 2 ? '#718096' : '#f3f4f6',
-                color: idx < 3 ? '#fff' : '#6b7280'
-              }}>{idx + 1}</span>
-              <span style={catStyles.barFlag}>{d.flag}</span>
-              <span style={catStyles.barCountry}>{d.country}</span>
-            </div>
-            <div style={catStyles.barWrapper}>
-              <div 
-                style={{ 
-                  ...catStyles.barFill, 
-                  width: `${(d.value / maxValue) * 100}%`,
-                  backgroundColor: REGION_COLORS[d.region] || '#6b7280'
-                }} 
-              />
-              <span style={catStyles.barValue}>{formatNumber(d.value, 0)}億円</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const catStyles = {
-  container: { marginTop: 32, backgroundColor: '#fff', borderRadius: 8, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb' },
-  sectionTitle: { fontSize: 18, fontWeight: 700, marginBottom: 20, color: '#1a1a1a' },
-  categoryTabs: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24, borderBottom: '1px solid #e5e7eb', paddingBottom: 16 },
-  catTab: { padding: '10px 16px', border: 'none', borderRadius: 6, backgroundColor: '#f3f4f6', cursor: 'pointer', fontSize: 14, fontWeight: 500, color: '#4b5563', transition: 'all 0.2s' },
-  catTabActive: { backgroundColor: '#1a1a1a', color: '#fff' },
-  chartContainer: { display: 'flex', flexDirection: 'column', gap: 14 },
-  barRow: { display: 'flex', alignItems: 'center', gap: 16 },
-  barLabel: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 160 },
-  barRank: { width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 },
-  barFlag: { fontSize: 20 },
-  barCountry: { fontSize: 14, color: '#1a1a1a', fontWeight: 500 },
-  barWrapper: { flex: 1, display: 'flex', alignItems: 'center', gap: 12 },
-  barFill: { height: 28, borderRadius: 4, transition: 'width 0.4s ease' },
-  barValue: { fontSize: 14, fontWeight: 700, color: '#374151', minWidth: 80, textAlign: 'right' }
-};
-
-// ============================================================
-// 인사이트 하이라이트 컴포넌트
-// ============================================================
-const InsightHighlights = ({ data, previousData }) => {
-  const insights = useMemo(() => {
-    if (!data || data.length < 2 || !previousData || previousData.length < 2) return [];
-    
-    const countries = data.filter(d => d.country !== '全国籍・地域' && d.country !== 'その他');
-    const prevMap = {};
-    previousData.forEach(d => { prevMap[d.country] = d; });
-    
-    const result = [];
-    
-    // 1. 가장 성장한 국가
-    const withGrowth = countries.map(c => {
-      const prev = prevMap[c.country];
-      return { ...c, growth: prev?.total ? ((c.total - prev.total) / prev.total) * 100 : 0 };
-    }).filter(c => c.growth !== 0);
-    
-    const topGrowth = withGrowth.sort((a, b) => b.growth - a.growth)[0];
-    if (topGrowth && topGrowth.growth > 0) {
-      result.push({
-        type: 'growth',
-        label: '最高成長',
-        country: topGrowth.country,
-        flag: COUNTRY_FLAGS[topGrowth.country],
-        value: `+${topGrowth.growth.toFixed(1)}%`,
-        color: '#059669'
-      });
-    }
-    
-    // 2. 가장 감소한 국가
-    const topDecline = withGrowth.sort((a, b) => a.growth - b.growth)[0];
-    if (topDecline && topDecline.growth < 0) {
-      result.push({
-        type: 'decline',
-        label: '最大減少',
-        country: topDecline.country,
-        flag: COUNTRY_FLAGS[topDecline.country],
-        value: `${topDecline.growth.toFixed(1)}%`,
-        color: '#dc2626'
-      });
-    }
-    
-    // 3. 1인당 지출 최고 국가
-    const topPerPerson = [...countries].sort((a, b) => b.perPerson - a.perPerson)[0];
-    if (topPerPerson) {
-      result.push({
-        type: 'premium',
-        label: '客単価1位',
-        country: topPerPerson.country,
-        flag: COUNTRY_FLAGS[topPerPerson.country],
-        value: `${formatNumber(topPerPerson.perPerson / 10000, 1)}万円`,
-        color: '#1a1a1a'
-      });
-    }
-    
-    // 4. 방문자 최다 국가
-    const topVisitors = [...countries].sort((a, b) => b.visitors - a.visitors)[0];
-    if (topVisitors) {
-      result.push({
-        type: 'volume',
-        label: '訪日客数1位',
-        country: topVisitors.country,
-        flag: COUNTRY_FLAGS[topVisitors.country],
-        value: `${formatNumber(topVisitors.visitors / 10000, 0)}万人`,
-        color: '#1a1a1a'
-      });
-    }
-    
-    // 5. 쇼핑 비율 최고 국가
-    const withShopRatio = countries.map(c => ({ ...c, shopRatio: c.total ? (c.shopping / c.total) * 100 : 0 }));
-    const topShopping = withShopRatio.sort((a, b) => b.shopRatio - a.shopRatio)[0];
-    if (topShopping) {
-      result.push({
-        type: 'shopping',
-        label: '買物比率1位',
-        country: topShopping.country,
-        flag: COUNTRY_FLAGS[topShopping.country],
-        value: `${topShopping.shopRatio.toFixed(1)}%`,
-        color: '#1a1a1a'
-      });
-    }
-    
-    return result;
-  }, [data, previousData]);
-
-  if (insights.length === 0) return null;
-
-  return (
-    <div style={insightStyles.container}>
-      <h3 style={insightStyles.title}>主要インサイト</h3>
-      <div style={insightStyles.grid}>
-        {insights.map((insight, idx) => (
-          <div key={idx} style={insightStyles.card}>
-            <div style={insightStyles.cardLabel}>{insight.label}</div>
-            <div style={insightStyles.cardMain}>
-              <span style={insightStyles.cardFlag}>{insight.flag}</span>
-              <span style={insightStyles.cardCountry}>{insight.country}</span>
-            </div>
-            <div style={{ ...insightStyles.cardValue, color: insight.color }}>
-              {insight.value}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const insightStyles = {
-  container: { marginTop: 32 },
-  title: { fontSize: 18, fontWeight: 700, marginBottom: 20, color: '#1a1a1a', borderBottom: '2px solid #1a1a1a', paddingBottom: 8, display: 'inline-block' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 },
-  card: { backgroundColor: '#fff', padding: 20, borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', textAlign: 'center' },
-  cardLabel: { fontSize: 12, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 },
-  cardMain: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 },
-  cardFlag: { fontSize: 24 },
-  cardCountry: { fontSize: 16, fontWeight: 600, color: '#1a1a1a' },
-  cardValue: { fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em' }
-};
-
-// API 요청 딜레이 (429 에러 방지)
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-const fetchSheetData = async (sheetName, retries = 2) => {
+const fetchSheet = async (sheetName, retries = 2) => {
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}?key=${API_KEY}`;
   try {
-    const response = await fetch(url);
-    if (response.status === 429 && retries > 0) {
-      // Rate limit - 잠시 대기 후 재시도
+    const res = await fetch(url);
+    if (res.status === 429 && retries > 0) {
       await delay(1000);
-      return fetchSheetData(sheetName, retries - 1);
+      return fetchSheet(sheetName, retries - 1);
     }
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
+    if (!res.ok) return [];
+    const data = await res.json();
     return data.values || [];
-  } catch (error) {
-    console.error(`Error fetching ${sheetName}:`, error);
+  } catch (e) {
+    console.warn(`fetchSheet failed: ${sheetName}`, e);
     return [];
   }
 };
 
-// 순차적으로 API 호출 (동시 요청 제한)
-const fetchSequential = async (requests, delayMs = 100) => {
-  const results = [];
-  for (const req of requests) {
-    results.push(await req());
-    if (delayMs > 0) await delay(delayMs);
-  }
-  return results;
+const parseExpense = (rows) => {
+  if (!rows || rows.length < 5) return [];
+  return rows.slice(4).map(r => ({
+    country: r[0] || '',
+    total: parseNumber(r[1]),
+    accommodation: parseNumber(r[2]),
+    food: parseNumber(r[3]),
+    transport: parseNumber(r[4]),
+    entertainment: parseNumber(r[5]),
+    shopping: parseNumber(r[6]),
+    other: parseNumber(r[7]),
+  })).filter(d => d.country);
 };
 
-const InsightsSummary = ({ data, previousData, loading }) => {
-  const insights = useMemo(() => {
-    if (!data?.length || !previousData?.length) return [];
-    
-    const results = [];
-    const changes = data.slice(1).map(item => {
-      const prevItem = previousData.find(p => p.country === item.country);
-      if (!prevItem?.total) return null;
-      return {
-        country: item.country,
-        change: ((item.total - prevItem.total) / prevItem.total) * 100,
-        region: getRegionForCountry(item.country)
-      };
-    }).filter(Boolean);
-    
-    const maxGrowth = changes.reduce((max, c) => c.change > max.change ? c : max, { change: -Infinity });
-    const maxDecline = changes.reduce((min, c) => c.change < min.change ? c : min, { change: Infinity });
-    
-    if (maxGrowth.change > 10) {
-      results.push({ type: 'growth', country: maxGrowth.country, value: maxGrowth.change });
-    }
-    if (maxDecline.change < -10) {
-      results.push({ type: 'decline', country: maxDecline.country, value: maxDecline.change });
-    }
-    
-    const totalCurrent = data[0]?.total || 0;
-    const totalPrevious = previousData.find(p => p.country === '全国籍・地域')?.total || 0;
-    if (totalPrevious > 0) {
-      results.push({ type: 'total', value: ((totalCurrent - totalPrevious) / totalPrevious) * 100, amount: totalCurrent });
-    }
-    
-    return results.slice(0, 3);
-  }, [data, previousData]);
+const parseVisitor = (rows) => {
+  if (!rows || rows.length < 5) return [];
+  return rows.slice(4).map(r => ({
+    country: r[0] || '',
+    perPerson: parseNumber(r[1]),
+    visitors: parseNumber(r[2]),
+    totalSpend: parseNumber(r[3]),
+    avgNights: parseNumber(r[4]),
+  })).filter(d => d.country);
+};
 
-  if (loading || insights.length === 0) return null;
+const mergeData = (expense, visitor) => {
+  return expense.map(e => {
+    const v = visitor.find(x => x.country === e.country) || {};
+    return { ...e, ...v };
+  });
+};
 
+// ============================================================
+// iframe HEIGHT (ResizeObserver-based, stable)
+// ============================================================
+const useIframeHeight = (...deps) => {
+  // One-time setup: ResizeObserver watches body size only
+  useEffect(() => {
+    let raf;
+    let lastH = 0;
+    const send = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const h = Math.max(
+          document.documentElement.scrollHeight,
+          document.body.scrollHeight
+        );
+        if (Math.abs(h - lastH) > 4) {
+          lastH = h;
+          window.parent.postMessage({ type: 'setHeight', height: h }, '*');
+        }
+      });
+    };
+
+    const ro = new ResizeObserver(send);
+    ro.observe(document.body);
+
+    const onMsg = (e) => { if (e.data?.type === 'requestHeight') send(); };
+    window.addEventListener('message', onMsg);
+    window.addEventListener('resize', send);
+    window.addEventListener('load', send);
+
+    send();
+    return () => {
+      ro.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener('message', onMsg);
+      window.removeEventListener('resize', send);
+      window.removeEventListener('load', send);
+    };
+  }, []);
+
+  // Explicit re-broadcast on tab/period changes (after render settles)
+  useEffect(() => {
+    const timers = [200, 500, 1000].map(ms => setTimeout(() => {
+      const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+      window.parent.postMessage({ type: 'setHeight', height: h }, '*');
+    }, ms));
+    return () => timers.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+};
+
+// ============================================================
+// ATOMIC UI COMPONENTS
+// ============================================================
+
+// Delta pill - compact growth indicator
+const Delta = ({ change, size = 'md' }) => {
+  if (!change) return <span style={{ color: T.faint, fontSize: 12 }}>—</span>;
+  const color = change.positive ? T.positive : T.negative;
+  const sign = change.positive ? '+' : '';
+  const fs = size === 'sm' ? 11 : size === 'lg' ? 14 : 12;
   return (
-    <div style={styles.insightBar}>
-      {insights.map((item, idx) => (
-        <div key={idx} style={styles.insightItem}>
-          {item.type === 'growth' && (
-            <span style={styles.insightGrowth}>
-              <span style={styles.insightFlag}>{COUNTRY_FLAGS[item.country] || '🌐'}</span>
-              <strong>{item.country}</strong> <span style={styles.insightArrowUp}>↑</span> +{item.value.toFixed(1)}%
-            </span>
-          )}
-          {item.type === 'decline' && (
-            <span style={styles.insightDecline}>
-              <span style={styles.insightFlag}>{COUNTRY_FLAGS[item.country] || '🌐'}</span>
-              <strong>{item.country}</strong> <span style={styles.insightArrowDown}>↓</span> {item.value.toFixed(1)}%
-            </span>
-          )}
-          {item.type === 'total' && (
-            <span style={styles.insightTotal}>
-              📊 市場全体 {item.value >= 0 ? <span style={styles.insightArrowUp}>↑</span> : <span style={styles.insightArrowDown}>↓</span>} {item.value >= 0 ? '+' : ''}{item.value.toFixed(1)}%（{formatNumber(item.amount)}億円）
-            </span>
-          )}
-        </div>
-      ))}
+    <span style={{
+      color,
+      fontSize: fs,
+      fontWeight: 600,
+      fontFamily: T.mono,
+      fontVariantNumeric: 'tabular-nums',
+      letterSpacing: '-0.01em',
+    }}>
+      {sign}{change.value.toFixed(1)}%
+    </span>
+  );
+};
+
+// Big number (editorial display)
+const BigNum = ({ value, unit, size = 'xl' }) => {
+  const sizes = {
+    md: { num: 22, unit: 12 },
+    lg: { num: 32, unit: 14 },
+    xl: { num: 44, unit: 16 },
+    xxl: { num: 56, unit: 18 },
+  };
+  const s = sizes[size];
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
+      <span style={{
+        fontFamily: T.serif,
+        fontSize: s.num,
+        fontWeight: 700,
+        letterSpacing: '-0.03em',
+        color: T.inkDark,
+        fontVariantNumeric: 'tabular-nums',
+        lineHeight: 1,
+      }}>{value}</span>
+      {unit && <span style={{
+        fontSize: s.unit,
+        fontWeight: 500,
+        color: T.muted,
+        marginLeft: 2,
+      }}>{unit}</span>}
+    </span>
+  );
+};
+
+// Horizontal bar (for rankings)
+const HBar = ({ value, max, color = T.inkDark, height = 4 }) => {
+  const pct = max ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
+  return (
+    <div style={{
+      height,
+      backgroundColor: T.lineSoft,
+      borderRadius: height / 2,
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        height: '100%',
+        width: `${pct}%`,
+        backgroundColor: color,
+        transition: 'width 0.3s ease',
+      }} />
     </div>
   );
 };
 
-const KPI_ICONS = {
-  '総消費額': '💰',
-  '訪日客数': '✈️',
-  '客単価': '👤',
-  '買物代比率': '🛍️'
-};
-
-const KPICard = ({ label, value, unit, change, note }) => (
-  <div style={styles.kpiCard}>
-    <div style={styles.kpiHeader}>
-      <span style={styles.kpiIcon}>{KPI_ICONS[label] || '📊'}</span>
-      <span style={styles.kpiLabel}>{label}</span>
+// Section header (editorial)
+const SectionTitle = ({ title, subtitle, kicker, aside }) => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingBottom: 14,
+    marginBottom: 20,
+    borderBottom: `1px solid ${T.line}`,
+    gap: 16,
+    flexWrap: 'wrap',
+  }}>
+    <div>
+      {kicker && <div style={{
+        fontSize: 11,
+        fontWeight: 600,
+        color: T.accent,
+        textTransform: 'uppercase',
+        letterSpacing: '0.1em',
+        marginBottom: 6,
+      }}>{kicker}</div>}
+      <h2 style={{
+        fontFamily: T.serif,
+        fontSize: 22,
+        fontWeight: 700,
+        color: T.inkDark,
+        margin: 0,
+        letterSpacing: '-0.01em',
+      }}>{title}</h2>
+      {subtitle && <p style={{
+        fontSize: 13,
+        color: T.muted,
+        margin: '4px 0 0',
+      }}>{subtitle}</p>}
     </div>
-    <div style={styles.kpiValue}>
-      {value}<span style={styles.kpiUnit}>{unit}</span>
-    </div>
-    {change && (
-  <div style={{ ...styles.kpiChange, color: change.isPositive ? '#16a34a' : '#c41e3a' }}>
-    <span style={styles.changeArrow}>{change.isPositive ? '▲' : '▼'}</span>
-    <span style={styles.changePercent}>{change.isPositive ? '+' : ''}{change.percent.toFixed(1)}%</span>
-    <span style={styles.changeLabel}>前年比</span>
-  </div>
-)}
-    {note && <div style={styles.kpiNote}>{note}</div>}
+    {aside && <div>{aside}</div>}
   </div>
 );
 
-const CountryList = ({ data, previousData, expandedCountry, setExpandedCountry, salesData, loadingSales }) => {
-  const [showAll, setShowAll] = useState(false);
-  const [viewMode, setViewMode] = useState('ranking');
-  const INITIAL_COUNT = 5;
-  
-  // 영업 시트가 있는 국가 목록
-  const salesCountries = ['韓国', '中国', '台湾', '香港', '米国', 'タイ', 'ベトナム', 'オーストラリア', 'シンガポール', 'マレーシア', 'インドネシア', 'フィリピン', 'インド', '英国', 'ドイツ', 'フランス', 'イタリア', 'スペイン', 'ロシア', 'カナダ'];
+// Card wrapper
+const Card = ({ children, style }) => (
+  <div style={{
+    backgroundColor: T.surface,
+    border: `1px solid ${T.line}`,
+    borderRadius: 4,
+    padding: 24,
+    ...style,
+  }}>{children}</div>
+);
 
-  const groupedByRegion = useMemo(() => {
-    if (!data?.length) return {};
-    const groups = {};
-    data.slice(1).forEach(item => {
-      const region = getRegionForCountry(item.country);
-      if (!groups[region]) groups[region] = [];
-      groups[region].push(item);
-    });
-    Object.keys(groups).forEach(r => groups[r].sort((a, b) => (b.total || 0) - (a.total || 0)));
-    return groups;
-  }, [data]);
-
-  const rankedData = useMemo(() => {
-    if (!data?.length) return [];
-    return [...data.slice(1)].sort((a, b) => (b.total || 0) - (a.total || 0));
-  }, [data]);
-
-  const displayData = showAll ? rankedData : rankedData.slice(0, INITIAL_COUNT);
-
-  const renderCountryRow = (item, rank) => {
-    const prev = previousData?.find(p => p.country === item.country);
-    const change = prev ? formatChange(item.total, prev.total) : null;
-    const region = getRegionForCountry(item.country);
-    const isExpanded = expandedCountry === item.country;
-    const countrySales = salesData?.[item.country];
-    const flag = COUNTRY_FLAGS[item.country] || '🌐';
-
-    return (
-      <div key={item.country} style={styles.countryRow}>
-        <div 
-          style={styles.countryHeader}
-          onClick={() => setExpandedCountry(isExpanded ? null : item.country)}
-        >
-          <div style={styles.countryLeft}>
-            {viewMode === 'ranking' && <span style={styles.rank}>{rank}</span>}
-            <span style={styles.flag}>{flag}</span>
-            <span style={{ ...styles.regionIndicator, backgroundColor: REGION_COLORS[region] }} />
-            <span style={styles.countryName}>{item.country}</span>
+// ============================================================
+// HERO STRIP - Top-level period + KPI summary (always visible)
+// ============================================================
+const HeroStrip = ({ sheets, kpi, loading }) => {
+  if (!sheets) return null;
+  const { period, periodLabel, prevLabel } = sheets;
+  return (
+    <div style={heroStyles.wrap}>
+      <div style={heroStyles.inner} className="hero-inner">
+        {/* LEFT: period marker */}
+        <div style={heroStyles.left}>
+          <div style={heroStyles.kicker}>訪日外国人消費動向</div>
+          <div style={heroStyles.periodRow}>
+            <span style={heroStyles.periodMain}>{periodLabel}</span>
+            <span style={heroStyles.periodBadge}>{period.badge}</span>
           </div>
-          <div style={styles.countryRight}>
-            <span style={styles.countryValue}>{formatNumber(item.total)}億円</span>
-            {change && (
-              <span style={{ ...styles.changeText, color: change.isPositive ? '#1a1a1a' : '#c41e3a' }}>
-                {change.isPositive ? '+' : ''}{change.percent.toFixed(1)}%
-              </span>
-            )}
-            <span style={{ ...styles.expandArrow, transform: isExpanded ? 'rotate(180deg)' : 'none' }}>
-              ▾
-            </span>
-          </div>
+          <div style={heroStyles.sub}>vs {prevLabel}　|　出典：観光庁</div>
         </div>
-        
-        {isExpanded && (
-          <div style={styles.expandedContent}>
-            <div style={styles.expenseSection}>
-              <div style={styles.sectionTitle}>費目別内訳</div>
-              <div style={styles.expenseGrid}>
-                {[
-                  { key: 'accommodation', label: '宿泊', icon: '🏨' },
-                  { key: 'food', label: '飲食', icon: '🍽️' },
-                  { key: 'transport', label: '交通', icon: '🚃' },
-                  { key: 'entertainment', label: '娯楽', icon: '🎭' },
-                  { key: 'shopping', label: '買物', icon: '🛒' },
-                  { key: 'other', label: 'その他', icon: '📦' }
-                ].map(exp => {
-                  const val = item[exp.key] || 0;
-                  const prevVal = prev?.[exp.key] || 0;
-                  const expChange = prevVal ? formatChange(val, prevVal) : null;
-                  const ratio = item.total ? ((val / item.total) * 100) : 0;
-                  
-                  return (
-                    <div key={exp.key} style={styles.expenseItem}>
-                      <div style={styles.expenseLabel}>
-                        <span><span style={styles.expenseIcon}>{exp.icon}</span> {exp.label}</span>
-                        <span style={styles.expenseRatio}>{ratio.toFixed(0)}%</span>
-                      </div>
-                      <div style={styles.expenseValue}>
-                        {formatNumber(val)}億円
-                        {expChange && (
-                          <span style={{ marginLeft: 8, fontSize: 11, color: expChange.isPositive ? '#16a34a' : '#c41e3a' }}>
-                            {expChange.isPositive ? '↑' : '↓'}{Math.abs(expChange.percent).toFixed(1)}%
-                          </span>
-                        )}
-                      </div>
-                      <div style={styles.barTrack}>
-                        <div style={{ ...styles.barFill, width: `${ratio}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
 
-            {countrySales?.length > 0 ? (
-              <div style={styles.salesSection}>
-                <div style={styles.sectionTitle}>買物品目別 購入者単価（年間）</div>
-                <table style={styles.salesTable}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}>品目</th>
-                      <th style={styles.thRight}>2023年</th>
-                      <th style={styles.thRight}>2024年</th>
-                      <th style={styles.thRight}>前年比</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {countrySales.map((sale, idx) => (
-                      <tr key={idx}>
-                        <td style={styles.td}>{sale.item}</td>
-                        <td style={styles.tdRight}>{formatNumber(sale.y2023, 0)}円</td>
-                        <td style={styles.tdRight}>{formatNumber(sale.y2024, 0)}円</td>
-                        <td style={{ ...styles.tdRight, color: sale.yoy >= 1 ? '#16a34a' : '#c41e3a' }}>
-                          {(sale.yoy * 100).toFixed(1)}%
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : loadingSales && salesCountries.includes(item.country) ? (
-              <div style={styles.salesSection}>
-                <div style={styles.sectionTitle}>買物品目別 購入者単価</div>
-                <div style={styles.salesLoading}>データを読み込み中...</div>
-              </div>
-            ) : salesCountries.includes(item.country) ? (
-              <div style={styles.salesSection}>
-                <div style={styles.sectionTitle}>買物品目別 購入者単価</div>
-                <div style={styles.salesLoading}>データがありません</div>
-              </div>
-            ) : null}
-          </div>
-        )}
+        {/* RIGHT: 4 KPI cells */}
+        <div style={heroStyles.kpiGrid} className="hero-kpi-grid">
+          <KpiCell label="総消費額" value={loading || !kpi ? '—' : formatOku(kpi.total, 0)} unit="億円" change={kpi?.totalChg} loading={loading} />
+          <KpiCell label="訪日客数" value={loading || !kpi ? '—' : formatNum(kpi.visitors, 1)} unit="万人" change={kpi?.visitorsChg} loading={loading} />
+          <KpiCell label="客単価" value={loading || !kpi ? '—' : formatNum(kpi.perPerson, 1)} unit="万円" change={kpi?.perPersonChg} loading={loading} />
+          <KpiCell label="買物比率" value={loading || !kpi ? '—' : formatNum(kpi.shopRatio, 1)} unit="%" change={kpi?.shopRatioChg} loading={loading} />
+        </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
+
+const KpiCell = ({ label, value, unit, change, loading }) => (
+  <div style={heroStyles.kpiCell}>
+    <div style={heroStyles.kpiLabel}>{label}</div>
+    <div style={heroStyles.kpiValue}>
+      {loading ? <span style={{ color: T.faint }}>—</span> : <BigNum value={value} unit={unit} size="lg" />}
+    </div>
+    <div style={heroStyles.kpiDelta}>
+      {change && <Delta change={change} size="sm" />}
+      <span style={heroStyles.kpiDeltaLabel}>前期比</span>
+    </div>
+  </div>
+);
+
+const heroStyles = {
+  wrap: {
+    backgroundColor: T.inkDark,
+    color: '#fff',
+  },
+  inner: {
+    maxWidth: 1200,
+    margin: '0 auto',
+    padding: '40px 24px 36px',
+    display: 'grid',
+    gridTemplateColumns: 'minmax(240px, 1fr) 2.5fr',
+    gap: 40,
+    alignItems: 'center',
+  },
+  left: {},
+  kicker: {
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: '0.14em',
+    textTransform: 'uppercase',
+    opacity: 0.55,
+    marginBottom: 12,
+  },
+  periodRow: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  periodMain: {
+    fontFamily: T.serif,
+    fontSize: 36,
+    fontWeight: 700,
+    letterSpacing: '-0.02em',
+    lineHeight: 1.1,
+  },
+  periodBadge: {
+    fontSize: 10,
+    fontWeight: 700,
+    padding: '4px 8px',
+    backgroundColor: T.accent,
+    color: '#fff',
+    borderRadius: 2,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+  },
+  sub: {
+    fontSize: 12,
+    opacity: 0.55,
+    marginTop: 10,
+    letterSpacing: '0.02em',
+  },
+  kpiGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, 1fr)',
+    gap: 0,
+  },
+  kpiCell: {
+    padding: '0 20px',
+    borderLeft: '1px solid rgba(255,255,255,0.15)',
+  },
+  kpiLabel: {
+    fontSize: 11,
+    fontWeight: 500,
+    opacity: 0.6,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+  kpiValue: {
+    marginBottom: 8,
+    color: '#fff',
+  },
+  kpiDelta: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+  },
+  kpiDeltaLabel: {
+    fontSize: 10,
+    opacity: 0.5,
+    letterSpacing: '0.05em',
+  },
+};
+
+// ============================================================
+// STICKY NAV - Period selector + tabs
+// ============================================================
+const StickyNav = ({ period, setPeriod, activeTab, setActiveTab }) => {
+  const tabs = [
+    { id: 'overview',    label: '概観' },
+    { id: 'countries',   label: '国別' },
+    { id: 'composition', label: '構成' },
+    { id: 'analysis',    label: '分析' },
+  ];
+  return (
+    <div style={navStyles.wrap}>
+      <div style={navStyles.inner} className="nav-inner">
+        <div style={navStyles.periods} className="nav-periods">
+          {PERIODS.map(p => (
+            <button
+              key={p.key}
+              onClick={() => setPeriod(p.key)}
+              style={{
+                ...navStyles.periodBtn,
+                ...(period === p.key ? navStyles.periodBtnActive : {}),
+              }}
+            >
+              <span style={navStyles.periodBtnLabel}>{p.label}</span>
+              {p.type === 'quarter' && (
+                <span style={{
+                  ...navStyles.periodBtnBadge,
+                  backgroundColor: period === p.key ? T.accent : 'transparent',
+                  color: period === p.key ? '#fff' : T.accent,
+                  border: `1px solid ${T.accent}`,
+                }}>Q</span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div style={navStyles.tabs} className="nav-tabs">
+          {tabs.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              style={{
+                ...navStyles.tab,
+                ...(activeTab === t.id ? navStyles.tabActive : {}),
+              }}
+            >{t.label}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const navStyles = {
+  wrap: {
+    position: 'sticky',
+    top: 0,
+    zIndex: 50,
+    backgroundColor: T.bg,
+    borderBottom: `1px solid ${T.line}`,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+  },
+  inner: {
+    maxWidth: 1200,
+    margin: '0 auto',
+    padding: '14px 24px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 24,
+    flexWrap: 'wrap',
+  },
+  periods: {
+    display: 'flex',
+    gap: 4,
+    padding: 3,
+    backgroundColor: '#fff',
+    border: `1px solid ${T.line}`,
+    borderRadius: 4,
+  },
+  periodBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '7px 14px',
+    fontSize: 13,
+    fontWeight: 600,
+    color: T.muted,
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderRadius: 3,
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+    fontFamily: T.sans,
+  },
+  periodBtnActive: {
+    backgroundColor: T.inkDark,
+    color: '#fff',
+  },
+  periodBtnLabel: {
+    fontVariantNumeric: 'tabular-nums',
+  },
+  periodBtnBadge: {
+    fontSize: 9,
+    fontWeight: 700,
+    padding: '1px 5px',
+    borderRadius: 2,
+    letterSpacing: '0.06em',
+  },
+  tabs: {
+    display: 'flex',
+    gap: 2,
+  },
+  tab: {
+    padding: '10px 18px',
+    fontSize: 14,
+    fontWeight: 500,
+    color: T.muted,
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderBottom: '2px solid transparent',
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+    fontFamily: T.sans,
+  },
+  tabActive: {
+    color: T.inkDark,
+    fontWeight: 700,
+    borderBottomColor: T.accent,
+  },
+};
+
+// ============================================================
+// TAB 1: 概観 (Overview) - Big picture, 1-screen summary
+// ============================================================
+const OverviewTab = ({ data, prev, sheets }) => {
+  const top10 = useMemo(() => {
+    if (!data?.length) return [];
+    return data
+      .filter(d => d.country !== '全国籍・地域' && d.country !== 'その他' && d.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+  }, [data]);
+
+  const regional = useMemo(() => {
+    if (!data?.length) return [];
+    const total = data[0]?.total || 0;
+    return Object.entries(REGION_GROUPS).map(([region, countries]) => {
+      const sum = data.filter(d => countries.includes(d.country)).reduce((s, d) => s + (d.total || 0), 0);
+      return { region, total: sum, share: total ? (sum / total) * 100 : 0 };
+    }).filter(r => r.total > 0).sort((a, b) => b.total - a.total);
+  }, [data]);
+
+  const movers = useMemo(() => {
+    if (!data?.length || !prev?.length) return { gainers: [], losers: [] };
+    const prevMap = {};
+    prev.forEach(p => { prevMap[p.country] = p; });
+    const withGrowth = data
+      .filter(d => d.country !== '全国籍・地域' && d.country !== 'その他' && d.total > 50)
+      .map(d => ({
+        country: d.country,
+        total: d.total,
+        growth: prevMap[d.country]?.total ? ((d.total - prevMap[d.country].total) / prevMap[d.country].total) * 100 : null,
+      }))
+      .filter(d => d.growth !== null);
+    return {
+      gainers: [...withGrowth].sort((a, b) => b.growth - a.growth).slice(0, 4),
+      losers: [...withGrowth].sort((a, b) => a.growth - b.growth).slice(0, 4),
+    };
+  }, [data, prev]);
+
+  const maxTotal = top10[0]?.total || 1;
+  const maxRegion = regional[0]?.total || 1;
 
   return (
-    <div style={styles.listContainer}>
-      <div style={styles.listHeader}>
-        <h3 style={styles.listTitle}>国別消費額</h3>
-        <div style={styles.toggleGroup}>
-          <button
-            onClick={() => setViewMode('ranking')}
-            style={{ ...styles.toggleBtn, ...(viewMode === 'ranking' ? styles.toggleActive : {}) }}
-          >
-            順位
-          </button>
-          <button
-            onClick={() => setViewMode('region')}
-            style={{ ...styles.toggleBtn, ...(viewMode === 'region' ? styles.toggleActive : {}) }}
-          >
-            地域別
-          </button>
+    <div style={{ display: 'grid', gap: 24 }}>
+      {/* TREND CHART - Full width */}
+      <Card>
+        <SectionTitle
+          kicker="Quarterly Trend"
+          title="四半期別 推移"
+          subtitle="2023年 1-3月期 〜 最新四半期"
+        />
+        <TrendChart data={TREND_DATA} highlightLabel={sheets?.period.type === 'quarter' ? '26/Q1' : null} />
+      </Card>
+
+      {/* TOP COUNTRIES (left) + REGIONAL (right) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 24 }} className="two-col">
+        <Card>
+          <SectionTitle
+            kicker="Ranking"
+            title="国別 TOP 10"
+            subtitle={`${sheets?.periodLabel} 消費額上位`}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {top10.map((c, i) => {
+              const region = getRegion(c.country);
+              return (
+                <div key={c.country} style={ovStyles.rankRow} className="rank-row">
+                  <div style={ovStyles.rankNum}>{String(i + 1).padStart(2, '0')}</div>
+                  <div style={ovStyles.rankCountry}>
+                    <span style={ovStyles.rankFlag}>{COUNTRY_FLAGS[c.country]}</span>
+                    <span>{c.country}</span>
+                  </div>
+                  <div style={ovStyles.rankBarWrap}>
+                    <HBar value={c.total} max={maxTotal} color={T.region[region]} height={6} />
+                  </div>
+                  <div style={ovStyles.rankValue}>
+                    <BigNum value={formatOku(c.total)} unit="億" size="md" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card>
+          <SectionTitle
+            kicker="By Region"
+            title="地域構成"
+            subtitle="消費額シェア"
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {regional.map(r => (
+              <div key={r.region}>
+                <div style={ovStyles.regRow}>
+                  <span style={ovStyles.regName}>
+                    <span style={{
+                      display: 'inline-block', width: 3, height: 14,
+                      backgroundColor: T.region[r.region],
+                      marginRight: 10, verticalAlign: 'middle',
+                    }} />
+                    {r.region}
+                  </span>
+                  <span style={ovStyles.regValue}>
+                    {formatOku(r.total)}<span style={{ fontSize: 11, color: T.faint, marginLeft: 4 }}>億</span>
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+                  <div style={{ flex: 1 }}>
+                    <HBar value={r.total} max={maxRegion} color={T.region[r.region]} height={4} />
+                  </div>
+                  <span style={{
+                    fontSize: 11, color: T.muted, minWidth: 40, textAlign: 'right',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}>{r.share.toFixed(1)}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      {/* MOVERS - gainers + losers */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }} className="two-col">
+        <Card style={{ borderLeft: `3px solid ${T.positive}` }}>
+          <SectionTitle kicker="Gainers" title="伸びた市場" />
+          <MoverList items={movers.gainers} />
+        </Card>
+        <Card style={{ borderLeft: `3px solid ${T.negative}` }}>
+          <SectionTitle kicker="Decliners" title="減った市場" />
+          <MoverList items={movers.losers} />
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+const MoverList = ({ items }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    {items.map(m => (
+      <div key={m.country} style={ovStyles.moverRow}>
+        <span style={ovStyles.rankFlag}>{COUNTRY_FLAGS[m.country]}</span>
+        <span style={ovStyles.moverCountry}>{m.country}</span>
+        <span style={ovStyles.moverValue}>{formatOku(m.total)}億円</span>
+        <Delta change={{ value: m.growth, positive: m.growth >= 0 }} size="md" />
+      </div>
+    ))}
+    {!items.length && <div style={{ fontSize: 12, color: T.faint, padding: 8 }}>データなし</div>}
+  </div>
+);
+
+const ovStyles = {
+  rankRow: {
+    display: 'grid',
+    gridTemplateColumns: '28px minmax(90px, 140px) 1fr auto',
+    alignItems: 'center',
+    gap: 12,
+    padding: '8px 0',
+    borderBottom: `1px solid ${T.lineSoft}`,
+  },
+  rankNum: {
+    fontFamily: T.mono,
+    fontSize: 11,
+    fontWeight: 600,
+    color: T.faint,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  rankCountry: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    fontSize: 14,
+    color: T.ink,
+    fontWeight: 500,
+  },
+  rankFlag: { fontSize: 16 },
+  rankBarWrap: { minWidth: 80 },
+  rankValue: {
+    textAlign: 'right',
+    minWidth: 80,
+  },
+  regRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  regName: {
+    fontSize: 14,
+    fontWeight: 500,
+    color: T.ink,
+  },
+  regValue: {
+    fontFamily: T.serif,
+    fontSize: 18,
+    fontWeight: 700,
+    color: T.inkDark,
+    fontVariantNumeric: 'tabular-nums',
+    letterSpacing: '-0.01em',
+  },
+  moverRow: {
+    display: 'grid',
+    gridTemplateColumns: '24px 1fr auto auto',
+    alignItems: 'center',
+    gap: 12,
+    padding: '8px 0',
+    borderBottom: `1px solid ${T.lineSoft}`,
+  },
+  moverCountry: {
+    fontSize: 14,
+    color: T.ink,
+    fontWeight: 500,
+  },
+  moverValue: {
+    fontSize: 13,
+    color: T.muted,
+    fontVariantNumeric: 'tabular-nums',
+  },
+};
+
+// ============================================================
+// TREND CHART (shared by overview)
+// ============================================================
+const TrendChart = ({ data, highlightLabel }) => {
+  const [metric, setMetric] = useState('total');
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <div style={trStyles.toggle}>
+          {[
+            { id: 'total', label: '消費額' },
+            { id: 'perPerson', label: '客単価' },
+          ].map(m => (
+            <button
+              key={m.id}
+              onClick={() => setMetric(m.id)}
+              style={{
+                ...trStyles.toggleBtn,
+                ...(metric === m.id ? trStyles.toggleBtnActive : {}),
+              }}
+            >{m.label}</button>
+          ))}
         </div>
       </div>
+      <ResponsiveContainer width="100%" height={280}>
+        <ComposedChart data={data} margin={{ top: 24, right: 16, left: 8, bottom: 36 }}>
+          <CartesianGrid strokeDasharray="2 4" stroke={T.line} vertical={false} />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 11, fill: T.muted, fontFamily: T.mono }}
+            axisLine={{ stroke: T.line }}
+            tickLine={false}
+            tickFormatter={(v) => {
+              const [yy, q] = v.split('/');
+              return `${q}`;
+            }}
+          />
+          <XAxis
+            dataKey="label"
+            axisLine={false}
+            tickLine={false}
+            xAxisId="year"
+            tick={({ x, y, payload, index }) => {
+              const [yy] = payload.value.split('/');
+              const prev = index > 0 ? data[index - 1].label.split('/')[0] : null;
+              if (yy !== prev) {
+                return <text x={x} y={y + 16} textAnchor="start" style={{ fontSize: 10, fill: T.faint, fontFamily: T.mono, letterSpacing: '0.08em' }}>'{yy}</text>;
+              }
+              return null;
+            }}
+          />
+          <YAxis
+            tick={{ fontSize: 10, fill: T.muted, fontFamily: T.mono }}
+            axisLine={false}
+            tickLine={false}
+            tickFormatter={(v) => metric === 'total' ? `${(v / 10000).toFixed(1)}兆` : `${v}万`}
+            width={42}
+          />
+          <Tooltip
+            cursor={{ fill: T.lineSoft }}
+            content={({ payload, label }) => {
+              if (!payload?.[0]) return null;
+              const d = payload[0].payload;
+              return (
+                <div style={trStyles.tip}>
+                  <div style={trStyles.tipLabel}>{label}</div>
+                  <div style={trStyles.tipRow}>
+                    <span>消費額</span>
+                    <span style={trStyles.tipVal}>{formatNum(d.total, 0)}億円</span>
+                  </div>
+                  <div style={trStyles.tipRow}>
+                    <span>客単価</span>
+                    <span style={trStyles.tipVal}>{d.perPerson.toFixed(1)}万円</span>
+                  </div>
+                </div>
+              );
+            }}
+          />
+          {metric === 'total' ? (
+            <Bar dataKey="total" radius={[2, 2, 0, 0]}>
+              {data.map((d, i) => {
+                const yy = d.label.split('/')[0];
+                const isHighlight = highlightLabel && d.label === highlightLabel;
+                const fill = isHighlight ? T.accent
+                  : yy === '26' ? T.inkDark
+                  : yy === '25' ? T.inkDark
+                  : yy === '24' ? T.muted
+                  : T.faint;
+                return <Cell key={i} fill={fill} fillOpacity={isHighlight ? 1 : 0.85} />;
+              })}
+            </Bar>
+          ) : (
+            <Line
+              type="monotone"
+              dataKey="perPerson"
+              stroke={T.accent}
+              strokeWidth={2}
+              dot={{ fill: T.accent, r: 3, strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
+            />
+          )}
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+const trStyles = {
+  toggle: {
+    display: 'flex',
+    gap: 2,
+    padding: 2,
+    backgroundColor: T.lineSoft,
+    borderRadius: 3,
+  },
+  toggleBtn: {
+    padding: '5px 12px',
+    fontSize: 12,
+    fontWeight: 500,
+    color: T.muted,
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderRadius: 2,
+    cursor: 'pointer',
+  },
+  toggleBtnActive: {
+    backgroundColor: '#fff',
+    color: T.inkDark,
+    fontWeight: 700,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+  },
+  tip: {
+    backgroundColor: T.inkDark,
+    color: '#fff',
+    padding: '10px 14px',
+    borderRadius: 3,
+    fontSize: 12,
+    minWidth: 160,
+  },
+  tipLabel: {
+    fontFamily: T.mono,
+    fontSize: 11,
+    opacity: 0.6,
+    marginBottom: 8,
+    letterSpacing: '0.05em',
+  },
+  tipRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 16,
+    marginTop: 4,
+  },
+  tipVal: {
+    fontFamily: T.mono,
+    fontWeight: 700,
+    fontVariantNumeric: 'tabular-nums',
+  },
+};
+
+// ============================================================
+// TAB 2: 国別 (Countries) - Full ranking with expandable detail
+// ============================================================
+const CountriesTab = ({ data, prev, sheets, salesData, loadingSales, expanded, setExpanded }) => {
+  const [viewMode, setViewMode] = useState('ranking');
+  const [showAll, setShowAll] = useState(false);
+  const INITIAL = 8;
+
+  const sorted = useMemo(() => {
+    if (!data?.length) return [];
+    return data
+      .filter(d => d.country !== '全国籍・地域' && d.country !== 'その他' && d.total > 0)
+      .sort((a, b) => b.total - a.total);
+  }, [data]);
+
+  const displayed = showAll ? sorted : sorted.slice(0, INITIAL);
+
+  const grouped = useMemo(() => {
+    const g = {};
+    sorted.forEach(c => {
+      const r = getRegion(c.country);
+      if (!g[r]) g[r] = [];
+      g[r].push(c);
+    });
+    return g;
+  }, [sorted]);
+
+  return (
+    <Card>
+      <SectionTitle
+        kicker="Countries & Regions"
+        title="国・地域別 詳細"
+        subtitle={`${sheets?.periodLabel} 消費額・費目別内訳`}
+        aside={
+          <div style={ctryStyles.modeToggle}>
+            {[
+              { id: 'ranking', label: '順位' },
+              { id: 'region', label: '地域' },
+            ].map(m => (
+              <button key={m.id} onClick={() => setViewMode(m.id)}
+                style={{
+                  ...ctryStyles.modeBtn,
+                  ...(viewMode === m.id ? ctryStyles.modeBtnActive : {}),
+                }}>{m.label}</button>
+            ))}
+          </div>
+        }
+      />
 
       {viewMode === 'ranking' ? (
         <>
-          {displayData.map((item, idx) => renderCountryRow(item, idx + 1))}
-          {rankedData.length > INITIAL_COUNT && (
-            <button style={styles.moreBtn} onClick={() => setShowAll(!showAll)}>
-              {showAll ? '閉じる' : `他${rankedData.length - INITIAL_COUNT}カ国を表示`}
+          <div style={ctryStyles.list}>
+            {displayed.map((c, i) => (
+              <CountryRow
+                key={c.country}
+                country={c}
+                rank={i + 1}
+                prev={prev}
+                expanded={expanded === c.country}
+                onToggle={() => setExpanded(expanded === c.country ? null : c.country)}
+                salesData={salesData[c.country]}
+                loadingSales={loadingSales && expanded === c.country}
+              />
+            ))}
+          </div>
+          {sorted.length > INITIAL && (
+            <button style={ctryStyles.moreBtn} onClick={() => setShowAll(!showAll)}>
+              {showAll ? '閉じる ↑' : `他 ${sorted.length - INITIAL} 市場を表示 ↓`}
             </button>
           )}
         </>
       ) : (
-        Object.entries(REGION_GROUPS).map(([region, _]) => {
-          const regionData = groupedByRegion[region];
-          if (!regionData?.length) return null;
-          const regionTotal = regionData.reduce((s, d) => s + (d.total || 0), 0);
-          const regionIcons = {
-            '東アジア': '🌏',
-            '東南アジア': '🌴',
-            '欧米豪': '🌍',
-            'その他': '🌐'
-          };
-          
+        Object.entries(REGION_GROUPS).map(([region]) => {
+          const items = grouped[region];
+          if (!items?.length) return null;
+          const rt = items.reduce((s, c) => s + c.total, 0);
           return (
-            <div key={region} style={styles.regionBlock}>
-              <div style={styles.regionHeader}>
-                <span style={styles.regionIcon}>{regionIcons[region]}</span>
-                <span style={{ ...styles.regionIndicator, backgroundColor: REGION_COLORS[region] }} />
-                <span style={styles.regionName}>{region}</span>
-                <span style={styles.regionTotal}>{formatNumber(regionTotal)}億円</span>
+            <div key={region} style={ctryStyles.regionBlock}>
+              <div style={ctryStyles.regionHdr}>
+                <div style={{
+                  width: 3, height: 20, backgroundColor: T.region[region], marginRight: 12,
+                }} />
+                <span style={ctryStyles.regionName}>{region}</span>
+                <span style={ctryStyles.regionCount}>{items.length} 市場</span>
+                <span style={ctryStyles.regionTotal}>
+                  <BigNum value={formatOku(rt)} unit="億円" size="md" />
+                </span>
               </div>
-              {regionData.map((item, idx) => renderCountryRow(item, idx + 1))}
+              {items.map((c, i) => (
+                <CountryRow
+                  key={c.country}
+                  country={c}
+                  rank={i + 1}
+                  prev={prev}
+                  expanded={expanded === c.country}
+                  onToggle={() => setExpanded(expanded === c.country ? null : c.country)}
+                  salesData={salesData[c.country]}
+                  loadingSales={loadingSales && expanded === c.country}
+                />
+              ))}
             </div>
           );
         })
       )}
-    </div>
+    </Card>
   );
 };
 
-const TrendChart = ({ data, year, onYearSelect }) => {
-  if (!data?.length) return null;
+const CountryRow = ({ country, rank, prev, expanded, onToggle, salesData, loadingSales }) => {
+  const prevC = prev?.find(p => p.country === country.country);
+  const change = prevC ? pctChange(country.total, prevC.total) : null;
+  const region = getRegion(country.country);
 
-  // 선택된 연도의 약자 (예: "2025" → "25")
-  const selectedYearShort = year.slice(2);
-
-  // 해당 연도의 막대인지 확인
-  const isSelectedYear = (label) => label?.startsWith(selectedYearShort + '/');
-
-  // 막대 위에 금액 라벨 표시하는 커스텀 컴포넌트
-  const CustomBarLabel = ({ x, y, width, value, index }) => {
-    const entry = data[index];
-    const yearPrefix = entry?.label?.split('/')[0];
-    // 연도별 색상
-    const labelColor = yearPrefix === '25' ? '#1a1a1a' : yearPrefix === '24' ? '#4b5563' : '#9ca3af';
-    return (
-      <text 
-        x={x + width / 2} 
-        y={y - 8} 
-        fill={labelColor}
-        fontSize={10}
-        fontWeight={600}
-        textAnchor="middle"
+  return (
+    <div style={{ borderBottom: `1px solid ${T.lineSoft}` }}>
+      <div
+        onClick={onToggle}
+        style={{
+          ...ctryStyles.row,
+          backgroundColor: expanded ? T.lineSoft : 'transparent',
+        }}
+        className="country-row"
       >
-        {formatNumber(value, 0)}
-      </text>
-    );
-  };
-
-  // 라인 위에 객단가 라벨 표시
-  const CustomLineLabel = ({ x, y, value, index }) => {
-    const isSelected = isSelectedYear(data[index]?.label);
-    return (
-      <text 
-        x={x} 
-        y={y - 12} 
-        fill="#dc2626"
-        fontSize={10}
-        fontWeight={isSelected ? 700 : 500}
-        textAnchor="middle"
-      >
-        {value.toFixed(1)}
-      </text>
-    );
-  };
-
-  return (
-    <div style={styles.chartBox}>
-      <h3 style={styles.chartTitle}>四半期別 旅行消費額・1人当たり旅行支出の推移</h3>
-      <div style={styles.chartSubtitle}>
-        <span style={styles.legendBar}>■ 訪日外国人旅行消費額（左軸）</span>
-        <span style={styles.legendLine}>● 1人当たり旅行支出（右軸）</span>
-      </div>
-      <ResponsiveContainer width="100%" height={340}>
-        <ComposedChart data={data} margin={{ top: 30, right: 50, bottom: 60, left: 50 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis 
-            dataKey="label" 
-            tick={{ fontSize: 10, fill: '#4a5568' }}
-            interval={0}
-            angle={-45}
-            textAnchor="end"
-            height={60}
-            tickFormatter={(value) => {
-              // 23/Q1 → 1-3月期 형식으로 변환
-              const qMap = { 'Q1': '1-3月期', 'Q2': '4-6月期', 'Q3': '7-9月期', 'Q4': '10-12月期' };
-              const [yy, q] = value.split('/');
-              return qMap[q] || value;
-            }}
-          />
-          <YAxis 
-            yAxisId="left"
-            tick={{ fontSize: 11, fill: '#4a5568' }}
-            domain={[0, 30000]}
-            tickFormatter={(v) => v.toLocaleString()}
-            label={{ value: '（億円）', position: 'top', offset: 15, fontSize: 11, fill: '#4a5568' }}
-          />
-          <YAxis 
-            yAxisId="right"
-            orientation="right"
-            tick={{ fontSize: 11, fill: '#dc2626' }}
-            domain={[20, 25]}
-            label={{ value: '（万円）', position: 'top', offset: 15, fontSize: 11, fill: '#dc2626' }}
-          />
-          <Tooltip 
-            formatter={(value, name) => {
-              if (name === '旅行消費額') return [`${formatNumber(value, 0)}億円`, name];
-              return [`${value.toFixed(1)}万円`, name];
-            }}
-            labelFormatter={(label) => {
-              const qMap = { 'Q1': '1-3月期', 'Q2': '4-6月期', 'Q3': '7-9月期', 'Q4': '10-12月期' };
-              const [yy, q] = label.split('/');
-              return `20${yy}年 ${qMap[q]}`;
-            }}
-          />
-          <Bar 
-            yAxisId="left" 
-            dataKey="total" 
-            name="旅行消費額" 
-            radius={[3, 3, 0, 0]}
-            label={<CustomBarLabel />}
-            onClick={(data) => {
-              if (onYearSelect && data?.label) {
-                const [y] = data.label.split('/');
-                onYearSelect(`20${y}`);
-              }
-            }}
-            cursor="pointer"
-          >
-            {data.map((entry, index) => {
-              const yearPrefix = entry.label?.split('/')[0];
-              const isSelected = isSelectedYear(entry.label);
-              // 연도별 색상: 2025=검정, 2024=진회색, 2023=연회색
-              const baseColor = yearPrefix === '25' ? '#1a1a1a' : yearPrefix === '24' ? '#6b7280' : '#d1d5db';
-              return (
-                <Cell 
-                  key={`cell-${index}`} 
-                  fill={baseColor}
-                  fillOpacity={isSelected ? 1 : 0.7}
-                  stroke={isSelected ? '#000' : 'none'}
-                  strokeWidth={isSelected ? 2 : 0}
-                />
-              );
-            })}
-          </Bar>
-          <Line 
-            yAxisId="right" 
-            type="monotone" 
-            dataKey="perPerson" 
-            name="1人当たり旅行支出" 
-            stroke="#dc2626" 
-            strokeWidth={2} 
-            dot={{ r: 5, fill: '#dc2626', stroke: '#fff', strokeWidth: 2 }}
-            label={<CustomLineLabel />}
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-      {/* 연도 구분선 - 클릭 가능하게 */}
-      <div style={styles.yearLabelsContainer}>
-        {['2023', '2024', '2025'].map(y => (
-          <div 
-            key={y}
-            style={{
-              ...styles.yearLabelGroup,
-              cursor: 'pointer',
-              backgroundColor: year === y ? '#f0f7ff' : 'transparent',
-              borderRadius: 4
-            }}
-            onClick={() => onYearSelect(y)}
-          >
-            <div style={{
-              ...styles.yearBracket,
-              borderColor: year === y ? '#2563eb' : '#cbd5e0'
-            }}></div>
-            <span style={{
-              ...styles.yearLabel,
-              color: year === y ? '#2563eb' : '#4a5568',
-              fontWeight: year === y ? 700 : 600
-            }}>{y}年</span>
-          </div>
-        ))}
-      </div>
-      {/* 각주 */}
-      <div style={styles.chartFootnote}>
-        ※ 出典：観光庁「訪日外国人消費動向調査」各四半期確報値
-      </div>
-    </div>
-  );
-};
-
-const CompositionChart = ({ data }) => {
-  if (!data?.length) return null;
-
-  const chartData = data.slice(1, 11).map(item => ({
-    country: item.country,
-    宿泊: item.total ? ((item.accommodation / item.total) * 100) : 0,
-    飲食: item.total ? ((item.food / item.total) * 100) : 0,
-    交通: item.total ? ((item.transport / item.total) * 100) : 0,
-    娯楽: item.total ? ((item.entertainment / item.total) * 100) : 0,
-    買物: item.total ? ((item.shopping / item.total) * 100) : 0,
-    他: item.total ? ((item.other / item.total) * 100) : 0
-  }));
-
-  const colors = ['#1a1a1a', '#c41e3a', '#4a5568', '#718096', '#a0aec0', '#e2e8f0'];
-
-  return (
-    <div style={styles.chartBox}>
-      <h3 style={styles.chartTitle}>費目構成比</h3>
-      <ResponsiveContainer width="100%" height={380}>
-        <BarChart data={chartData} layout="vertical" margin={{ left: 60, right: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: '#4a5568' }} />
-          <YAxis dataKey="country" type="category" tick={{ fontSize: 11, fill: '#1a1a1a' }} width={56} />
-          <Tooltip formatter={(v) => `${v.toFixed(1)}%`} />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          {['宿泊', '飲食', '交通', '娯楽', '買物', '他'].map((k, i) => (
-            <Bar key={k} dataKey={k} stackId="a" fill={colors[i]} />
-          ))}
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-};
-
-const MatrixChart = ({ data, previousData }) => {
-  if (!data?.length) return null;
-
-  const chartData = data.slice(1).map(item => {
-    const prev = previousData?.find(p => p.country === item.country);
-    const growth = prev?.total ? ((item.total - prev.total) / prev.total) * 100 : 0;
-    const perPerson = item.perPerson ? (item.perPerson / 10000) : (item.visitors ? (item.total * 100000000 / item.visitors) / 10000 : 0);
-    
-    return {
-      country: item.country,
-      flag: COUNTRY_FLAGS[item.country] || '🌐',
-      growth,
-      perPerson,
-      total: item.total,
-      visitors: item.visitors || 0,
-      region: getRegionForCountry(item.country),
-      hasPrevData: !!prev?.total
-    };
-  }).filter(d => d.total > 100 && d.perPerson > 0);
-
-  const hasPrevData = previousData?.length > 0;
-
-  // 상위 10개국만 라벨 표시
-  const top10 = [...chartData].sort((a, b) => b.total - a.total).slice(0, 12);
-
-  return (
-    <div style={matrixStyles.container}>
-      <div style={matrixStyles.header}>
-        <h3 style={matrixStyles.title}>市場ポジショニング</h3>
-        <p style={matrixStyles.subtitle}>成長率 × 客単価で見る各国市場の特性</p>
-      </div>
-      
-      {/* 새로운 4사분면 설명 - 포지티브 표현 */}
-      <div style={matrixStyles.quadrantGuide}>
-        <div style={{...matrixStyles.quadrant, borderLeft: '3px solid #059669'}}>
-          <div style={matrixStyles.quadrantLabel}>高成長・高単価</div>
-          <div style={matrixStyles.quadrantDesc}>プレミアム × 成長性</div>
-          <div style={matrixStyles.quadrantExample}>欧米からの長期滞在者など</div>
-        </div>
-        <div style={{...matrixStyles.quadrant, borderLeft: '3px solid #2563eb'}}>
-          <div style={matrixStyles.quadrantLabel}>安定・高単価</div>
-          <div style={matrixStyles.quadrantDesc}>高付加価値市場</div>
-          <div style={matrixStyles.quadrantExample}>富裕層・ビジネス客など</div>
-        </div>
-        <div style={{...matrixStyles.quadrant, borderLeft: '3px solid #d97706'}}>
-          <div style={matrixStyles.quadrantLabel}>高成長・リーズナブル</div>
-          <div style={matrixStyles.quadrantDesc}>ボリューム拡大市場</div>
-          <div style={matrixStyles.quadrantExample}>新興市場からの急増など</div>
-        </div>
-        <div style={{...matrixStyles.quadrant, borderLeft: '3px solid #6b7280'}}>
-          <div style={matrixStyles.quadrantLabel}>安定・リーズナブル</div>
-          <div style={matrixStyles.quadrantDesc}>近隣リピーター市場</div>
-          <div style={matrixStyles.quadrantExample}>韓国・台湾など近距離常連客</div>
-        </div>
+        <span style={ctryStyles.rowRank}>{String(rank).padStart(2, '0')}</span>
+        <span style={ctryStyles.rowFlag}>{COUNTRY_FLAGS[country.country]}</span>
+        <span style={{
+          width: 2, height: 18, backgroundColor: T.region[region], marginRight: 6,
+        }} />
+        <span style={ctryStyles.rowName}>{country.country}</span>
+        <span style={ctryStyles.rowValue}>
+          <BigNum value={formatOku(country.total)} unit="億円" size="md" />
+        </span>
+        <span style={{ minWidth: 70, textAlign: 'right' }}>
+          <Delta change={change} />
+        </span>
+        <span style={{
+          ...ctryStyles.rowArrow,
+          transform: expanded ? 'rotate(180deg)' : 'none',
+        }}>▾</span>
       </div>
 
-      {!hasPrevData && (
-        <div style={matrixStyles.noDataNote}>※ 前年データがないため、成長率は0%で表示</div>
-      )}
-      
-      {/* 국가 리스트 (차트 옆에 표시) */}
-      <div style={matrixStyles.mainContent}>
-        <div style={matrixStyles.chartWrapper}>
-          {chartData.length === 0 ? (
-            <div style={matrixStyles.noData}>データがありません</div>
-          ) : (
-            <ResponsiveContainer width="100%" height={450}>
-              <ScatterChart margin={{ top: 30, right: 30, bottom: 50, left: 50 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis 
-                  type="number" 
-                  dataKey="growth" 
-                  name="成長率" 
-                  unit="%"
-                  tick={{ fontSize: 12, fill: '#6b7280' }}
-                  axisLine={{ stroke: '#d1d5db' }}
-                  label={{ value: '← 安定　　　成長率（前年比）　　　成長 →', position: 'bottom', offset: 30, fontSize: 12, fill: '#6b7280' }}
-                />
-                <YAxis 
-                  type="number" 
-                  dataKey="perPerson" 
-                  name="客単価" 
-                  unit="万円"
-                  tick={{ fontSize: 12, fill: '#6b7280' }}
-                  axisLine={{ stroke: '#d1d5db' }}
-                  label={{ value: '客単価（万円）', angle: -90, position: 'left', offset: 25, fontSize: 12, fill: '#6b7280' }}
-                />
-                <ZAxis type="number" dataKey="total" range={[100, 1000]} />
-                <Tooltip 
-                  content={({ payload }) => {
-                    if (!payload?.[0]) return null;
-                    const d = payload[0].payload;
-                    return (
-                      <div style={matrixStyles.tooltip}>
-                        <div style={matrixStyles.tooltipTitle}>{d.flag} {d.country}</div>
-                        <div style={matrixStyles.tooltipRow}>
-                          <span>成長率</span>
-                          <span style={{ color: d.growth >= 0 ? '#059669' : '#dc2626', fontWeight: 700 }}>
-                            {d.hasPrevData ? (d.growth >= 0 ? '+' : '') + d.growth.toFixed(1) + '%' : 'N/A'}
-                          </span>
-                        </div>
-                        <div style={matrixStyles.tooltipRow}>
-                          <span>客単価</span>
-                          <span style={{ fontWeight: 700 }}>{d.perPerson.toFixed(1)}万円</span>
-                        </div>
-                        <div style={matrixStyles.tooltipRow}>
-                          <span>消費額</span>
-                          <span style={{ fontWeight: 700 }}>{formatNumber(d.total, 0)}億円</span>
-                        </div>
-                        <div style={matrixStyles.tooltipRow}>
-                          <span>訪日客数</span>
-                          <span style={{ fontWeight: 700 }}>{formatNumber(d.visitors / 10000, 0)}万人</span>
-                        </div>
-                      </div>
-                    );
-                  }}
-                />
-                <Scatter data={chartData}>
-                  {chartData.map((entry, i) => (
-                    <Cell key={i} fill={REGION_COLORS[entry.region] || '#9ca3af'} fillOpacity={0.85} />
-                  ))}
-                </Scatter>
-              </ScatterChart>
-            </ResponsiveContainer>
+      {expanded && (
+        <div style={ctryStyles.expandBox}>
+          <ExpenseBreakdown country={country} prev={prevC} />
+          {salesData && salesData.length > 0 && <SalesTable data={salesData} />}
+          {loadingSales && !salesData && (
+            <div style={{ padding: 16, fontSize: 12, color: T.muted, textAlign: 'center' }}>
+              買物品目データを読み込み中...
+            </div>
           )}
         </div>
-
-        {/* 상위 국가 리스트 */}
-        <div style={matrixStyles.countryList}>
-          <div style={matrixStyles.listTitle}>主要国一覧</div>
-          {top10.map((d, i) => (
-            <div key={d.country} style={matrixStyles.listItem}>
-              <span style={matrixStyles.listRank}>{i + 1}</span>
-              <span style={matrixStyles.listFlag}>{d.flag}</span>
-              <span style={matrixStyles.listCountry}>{d.country}</span>
-              <div style={matrixStyles.listValues}>
-                <span style={{color: d.growth >= 0 ? '#059669' : '#dc2626', fontWeight: 600}}>
-                  {d.growth >= 0 ? '+' : ''}{d.growth.toFixed(0)}%
-                </span>
-                <span style={{color: '#6b7280'}}>{d.perPerson.toFixed(0)}万円</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      
-      <div style={matrixStyles.legend}>
-        {Object.entries(REGION_COLORS).map(([region, color]) => (
-          <div key={region} style={matrixStyles.legendItem}>
-            <span style={{ ...matrixStyles.legendDot, backgroundColor: color }} />
-            <span style={matrixStyles.legendText}>{region}</span>
-          </div>
-        ))}
-      </div>
-      
-      <div style={matrixStyles.note}>
-        ※ バブルの大きさは消費額の規模を表します
-      </div>
+      )}
     </div>
   );
 };
 
-const matrixStyles = {
-  container: { backgroundColor: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb' },
-  header: { marginBottom: 24 },
-  title: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: 0 },
-  subtitle: { fontSize: 14, color: '#6b7280', margin: '8px 0 0' },
-  quadrantGuide: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 },
-  quadrant: { padding: '12px 16px', backgroundColor: '#f9fafb', borderRadius: 6 },
-  quadrantLabel: { fontSize: 14, fontWeight: 700, color: '#1a1a1a' },
-  quadrantDesc: { fontSize: 13, color: '#374151', marginTop: 2 },
-  quadrantExample: { fontSize: 12, color: '#9ca3af', marginTop: 4 },
-  noDataNote: { fontSize: 13, color: '#f59e0b', backgroundColor: '#fffbeb', padding: '12px 16px', borderRadius: 6, marginBottom: 16 },
-  mainContent: { display: 'grid', gridTemplateColumns: '1fr 200px', gap: 24 },
-  chartWrapper: { },
-  countryList: { backgroundColor: '#f9fafb', borderRadius: 8, padding: 16 },
-  listTitle: { fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #e5e7eb' },
-  listItem: { display: 'grid', gridTemplateColumns: '20px 24px 1fr auto', gap: 6, alignItems: 'center', padding: '6px 0', fontSize: 13 },
-  listRank: { color: '#9ca3af', fontSize: 11, fontWeight: 600 },
-  listFlag: { fontSize: 14 },
-  listCountry: { color: '#374151', fontWeight: 500 },
-  listValues: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', fontSize: 12 },
-  noData: { textAlign: 'center', padding: 60, color: '#9ca3af' },
-  tooltip: { backgroundColor: '#1a1a1a', color: '#fff', padding: 16, borderRadius: 8, fontSize: 13, minWidth: 180 },
-  tooltipTitle: { fontSize: 15, fontWeight: 700, marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.2)' },
-  tooltipRow: { display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 6 },
-  legend: { display: 'flex', justifyContent: 'center', gap: 24, marginTop: 20, paddingTop: 20, borderTop: '1px solid #e5e7eb' },
-  legendItem: { display: 'flex', alignItems: 'center', gap: 8 },
-  legendDot: { width: 12, height: 12, borderRadius: '50%' },
-  legendText: { fontSize: 13, color: '#4b5563' },
-  note: { textAlign: 'center', fontSize: 12, color: '#9ca3af', marginTop: 16 }
-};
-
-// ============================================================
-// 국가 vs 국가 비교 컴포넌트
-// ============================================================
-const CountryCompare = ({ data, previousData, year }) => {
-  const [country1, setCountry1] = useState('');
-  const [country2, setCountry2] = useState('');
-  const [country3, setCountry3] = useState('');
-  
-  const countries = useMemo(() => {
-    if (!data) return [];
-    return data.filter(d => d.country !== '全国籍・地域' && d.country !== 'その他').map(d => d.country);
-  }, [data]);
-
-  // 초기값 설정
-  useEffect(() => {
-    if (countries.length >= 3 && !country1 && !country2 && !country3) {
-      setCountry1(countries[0]);
-      setCountry2(countries[1]);
-      setCountry3(countries[2]);
-    }
-  }, [countries, country1, country2, country3]);
-
-  const getData = (countryName) => {
-    const current = data?.find(d => d.country === countryName);
-    const prev = previousData?.find(d => d.country === countryName);
-    if (!current) return null;
-    
-    const growth = prev?.total ? ((current.total - prev.total) / prev.total) * 100 : 0;
-    const shopRatio = current.total ? (current.shopping / current.total) * 100 : 0;
-    
-    return {
-      ...current,
-      growth,
-      shopRatio,
-      perPersonMan: current.perPerson ? current.perPerson / 10000 : 0,
-      visitorsMan: current.visitors ? current.visitors / 10000 : 0
-    };
-  };
-
-  const d1 = getData(country1);
-  const d2 = getData(country2);
-  const d3 = getData(country3);
-
-  const metrics = [
-    { label: '消費額', key: 'total', unit: '億円', format: v => formatNumber(v, 0) },
-    { label: '訪日客数', key: 'visitorsMan', unit: '万人', format: v => formatNumber(v, 0) },
-    { label: '客単価', key: 'perPersonMan', unit: '万円', format: v => formatNumber(v, 1) },
-    { label: '成長率', key: 'growth', unit: '%', format: v => (v >= 0 ? '+' : '') + v.toFixed(1), isGrowth: true },
-    { label: '買物比率', key: 'shopRatio', unit: '%', format: v => v.toFixed(1) },
-    { label: '平均泊数', key: 'avgNights', unit: '泊', format: v => v?.toFixed(1) || '—' },
+const ExpenseBreakdown = ({ country, prev }) => {
+  const cats = [
+    { key: 'accommodation', label: '宿泊' },
+    { key: 'food', label: '飲食' },
+    { key: 'transport', label: '交通' },
+    { key: 'entertainment', label: '娯楽' },
+    { key: 'shopping', label: '買物' },
+    { key: 'other', label: 'その他' },
   ];
-
-  if (!data || data.length < 2) return null;
-  if (!d1 || !d2) return null;
-
-  const allData = [d1, d2, d3].filter(Boolean);
-  const selectedCountries = [country1, country2, country3].filter(Boolean);
-
   return (
-    <div style={compareStyles.container}>
-      <div style={compareStyles.header}>
-        <div>
-          <h3 style={compareStyles.title}>国別比較</h3>
-          <p style={compareStyles.subtitle}>最大3カ国を選んで詳細比較</p>
-        </div>
-        <div style={compareStyles.yearBadge}>{year}年 年間データ</div>
-      </div>
-      
-      <div style={compareStyles.selectors}>
-        <select value={country1} onChange={e => setCountry1(e.target.value)} style={compareStyles.select}>
-          {countries.map(c => <option key={c} value={c}>{COUNTRY_FLAGS[c]} {c}</option>)}
-        </select>
-        <span style={compareStyles.vs}>VS</span>
-        <select value={country2} onChange={e => setCountry2(e.target.value)} style={compareStyles.select}>
-          {countries.map(c => <option key={c} value={c}>{COUNTRY_FLAGS[c]} {c}</option>)}
-        </select>
-        <span style={compareStyles.vs}>VS</span>
-        <select value={country3} onChange={e => setCountry3(e.target.value)} style={compareStyles.select}>
-          <option value="">選択なし</option>
-          {countries.map(c => <option key={c} value={c}>{COUNTRY_FLAGS[c]} {c}</option>)}
-        </select>
-      </div>
-
-      <div style={compareStyles.table}>
-        <div style={compareStyles.headerRow}>
-          <div style={compareStyles.metricCol}></div>
-          {selectedCountries.map((c, i) => (
-            <div key={i} style={compareStyles.countryCol}>
-              <span style={compareStyles.flag}>{COUNTRY_FLAGS[c]}</span>
-              <span>{c}</span>
-            </div>
-          ))}
-        </div>
-        
-        {metrics.map(m => {
-          const values = allData.map(d => d?.[m.key] || 0);
-          const maxVal = Math.max(...values);
-          
+    <div>
+      <div style={ctryStyles.breakdownTitle}>費目別内訳</div>
+      <div style={ctryStyles.breakdownGrid}>
+        {cats.map(c => {
+          const val = country[c.key] || 0;
+          const pct = country.total ? (val / country.total) * 100 : 0;
+          const pv = prev?.[c.key] || 0;
+          const chg = pv ? pctChange(val, pv) : null;
           return (
-            <div key={m.key} style={{...compareStyles.row, gridTemplateColumns: `120px repeat(${allData.length}, 1fr)`}}>
-              <div style={compareStyles.metricCol}>{m.label}</div>
-              {allData.map((d, i) => {
-                const val = d?.[m.key] || 0;
-                const isMax = val === maxVal && values.filter(v => v === maxVal).length === 1;
-                return (
-                  <div key={i} style={{
-                    ...compareStyles.valueCol, 
-                    fontWeight: isMax ? 700 : 400, 
-                    color: isMax ? '#1a1a1a' : '#6b7280',
-                    backgroundColor: isMax ? '#f0fdf4' : 'transparent',
-                    padding: '8px 12px',
-                    borderRadius: 6
-                  }}>
-                    {m.format(val)}<span style={compareStyles.unit}>{m.unit}</span>
-                    {isMax && <span style={compareStyles.winBadge}>1位</span>}
-                  </div>
-                );
-              })}
+            <div key={c.key} style={ctryStyles.breakdownCell}>
+              <div style={ctryStyles.breakdownLabel}>
+                <span>{c.label}</span>
+                <span style={{ fontSize: 11, color: T.muted, fontFamily: T.mono }}>{pct.toFixed(0)}%</span>
+              </div>
+              <div style={ctryStyles.breakdownValue}>
+                <span style={{
+                  fontFamily: T.serif,
+                  fontSize: 17,
+                  fontWeight: 700,
+                  color: T.inkDark,
+                  fontVariantNumeric: 'tabular-nums',
+                }}>{formatOku(val)}</span>
+                <span style={{ fontSize: 10, color: T.muted, marginLeft: 3 }}>億</span>
+                {chg && <span style={{ marginLeft: 8 }}><Delta change={chg} size="sm" /></span>}
+              </div>
+              <div style={{ marginTop: 6 }}>
+                <HBar value={pct} max={100} color={T.inkDark} height={3} />
+              </div>
             </div>
           );
         })}
@@ -1589,1461 +1225,1296 @@ const CountryCompare = ({ data, previousData, year }) => {
   );
 };
 
-const compareStyles = {
-  container: { backgroundColor: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', marginTop: 32 },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
-  title: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: 0 },
-  subtitle: { fontSize: 14, color: '#6b7280', margin: '4px 0 0' },
-  yearBadge: { backgroundColor: '#1a1a1a', color: '#fff', padding: '6px 14px', borderRadius: 6, fontSize: 13, fontWeight: 600 },
-  selectors: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 32 },
-  select: { padding: '12px 16px', fontSize: 16, fontWeight: 500, border: '2px solid #e5e7eb', borderRadius: 8, backgroundColor: '#fff', cursor: 'pointer', minWidth: 160 },
-  vs: { fontSize: 18, fontWeight: 800, color: '#9ca3af' },
-  table: { },
-  headerRow: { display: 'grid', gridTemplateColumns: '120px 1fr 1fr 100px', gap: 16, padding: '12px 0', borderBottom: '2px solid #1a1a1a', marginBottom: 8 },
-  row: { display: 'grid', gridTemplateColumns: '120px 1fr 1fr 100px', gap: 16, padding: '14px 0', borderBottom: '1px solid #f3f4f6' },
-  metricCol: { fontSize: 14, fontWeight: 600, color: '#374151' },
-  countryCol: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600 },
-  flag: { fontSize: 20 },
-  valueCol: { fontSize: 18, display: 'flex', alignItems: 'baseline', gap: 4 },
-  unit: { fontSize: 12, color: '#9ca3af', marginLeft: 2 },
-  diffCol: { fontSize: 14, fontWeight: 600, textAlign: 'right' },
-  winBadge: { marginLeft: 6, fontSize: 12, color: '#059669' }
-};
+const SalesTable = ({ data }) => (
+  <div style={{ marginTop: 20 }}>
+    <div style={ctryStyles.breakdownTitle}>買物品目別 購入者単価（年間）</div>
+    <table style={ctryStyles.salesTbl}>
+      <thead>
+        <tr>
+          <th style={ctryStyles.th}>品目</th>
+          <th style={ctryStyles.thR}>2023年</th>
+          <th style={ctryStyles.thR}>2024年</th>
+          <th style={ctryStyles.thR}>前年比</th>
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((s, i) => {
+          const growth = s.yoy ? (s.yoy - 1) * 100 : null;
+          return (
+            <tr key={i}>
+              <td style={ctryStyles.td}>{s.item}</td>
+              <td style={ctryStyles.tdR}>{formatNum(s.y2023, 0)}円</td>
+              <td style={ctryStyles.tdR}>{formatNum(s.y2024, 0)}円</td>
+              <td style={ctryStyles.tdR}>
+                {growth !== null && <Delta change={{ value: growth, positive: growth >= 0 }} size="sm" />}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+);
 
-// ============================================================
-// 시장 점유율 도넛 차트
-// ============================================================
-const MarketShareChart = ({ data, year }) => {
-  const [hoveredIndex, setHoveredIndex] = useState(null);
-  
-  const shareData = useMemo(() => {
-    if (!data || data.length < 2) return [];
-    
-    const total = data[0]?.total || 0;
-    const countries = data.slice(1).filter(d => d.country !== 'その他');
-    
-    // TOP 6 + その他
-    const sorted = [...countries].sort((a, b) => b.total - a.total);
-    const top6 = sorted.slice(0, 6);
-    const othersTotal = sorted.slice(6).reduce((s, c) => s + c.total, 0) + (data.find(d => d.country === 'その他')?.total || 0);
-    
-    // 더 구분되는 색상 팔레트
-    const colors = ['#1a1a1a', '#dc2626', '#2563eb', '#059669', '#d97706', '#7c3aed', '#e5e7eb'];
-    
-    const result = top6.map((c, i) => ({
-      country: c.country,
-      value: c.total,
-      share: (c.total / total) * 100,
-      flag: COUNTRY_FLAGS[c.country],
-      color: colors[i]
-    }));
-    
-    if (othersTotal > 0) {
-      result.push({
-        country: 'その他',
-        value: othersTotal,
-        share: (othersTotal / total) * 100,
-        flag: '🌐',
-        color: colors[6]
-      });
-    }
-    
-    return result;
-  }, [data]);
-
-  if (shareData.length === 0) return null;
-
-  // 원형 그래프를 위한 계산
-  let cumulativePercent = 0;
-
-  return (
-    <div style={shareStyles.container}>
-      <div style={shareStyles.header}>
-        <div>
-          <h3 style={shareStyles.title}>市場シェア</h3>
-          <p style={shareStyles.subtitle}>国別消費額の構成比</p>
-        </div>
-        <div style={shareStyles.yearBadge}>{year}年</div>
-      </div>
-      
-      <div style={shareStyles.content}>
-        <div style={shareStyles.chartArea}>
-          <svg viewBox="0 0 100 100" style={shareStyles.svg}>
-            {shareData.map((d, i) => {
-              const startPercent = cumulativePercent;
-              cumulativePercent += d.share;
-              
-              const startAngle = (startPercent / 100) * 360 - 90;
-              const endAngle = (cumulativePercent / 100) * 360 - 90;
-              
-              const startRad = (startAngle * Math.PI) / 180;
-              const endRad = (endAngle * Math.PI) / 180;
-              
-              const x1 = 50 + 40 * Math.cos(startRad);
-              const y1 = 50 + 40 * Math.sin(startRad);
-              const x2 = 50 + 40 * Math.cos(endRad);
-              const y2 = 50 + 40 * Math.sin(endRad);
-              
-              const largeArc = d.share > 50 ? 1 : 0;
-              const isHovered = hoveredIndex === i;
-              
-              return (
-                <path
-                  key={i}
-                  d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`}
-                  fill={d.color}
-                  opacity={hoveredIndex === null ? 1 : isHovered ? 1 : 0.4}
-                  style={{ transition: 'opacity 0.2s', cursor: 'pointer' }}
-                  onMouseEnter={() => setHoveredIndex(i)}
-                  onMouseLeave={() => setHoveredIndex(null)}
-                />
-              );
-            })}
-            <circle cx="50" cy="50" r="25" fill="#fff" />
-            {hoveredIndex !== null && (
-              <text x="50" y="50" textAnchor="middle" dominantBaseline="middle" style={{ fontSize: 8, fontWeight: 700 }}>
-                {shareData[hoveredIndex]?.share.toFixed(1)}%
-              </text>
-            )}
-          </svg>
-        </div>
-        
-        <div style={shareStyles.legend}>
-          {shareData.map((d, i) => (
-            <div 
-              key={i} 
-              style={{
-                ...shareStyles.legendItem,
-                backgroundColor: hoveredIndex === i ? '#f3f4f6' : 'transparent',
-                borderRadius: 6,
-                padding: '8px 12px',
-                margin: '-8px -12px',
-                marginBottom: 4,
-                transition: 'background-color 0.2s',
-                cursor: 'pointer'
-              }}
-              onMouseEnter={() => setHoveredIndex(i)}
-              onMouseLeave={() => setHoveredIndex(null)}
-            >
-              <div style={{...shareStyles.legendDot, backgroundColor: d.color}} />
-              <span style={shareStyles.legendFlag}>{d.flag}</span>
-              <span style={shareStyles.legendCountry}>{d.country}</span>
-              <span style={{...shareStyles.legendValue, color: d.color}}>{d.share.toFixed(1)}%</span>
-              <span style={shareStyles.legendAmount}>{formatNumber(d.value, 0)}億円</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const shareStyles = {
-  container: { backgroundColor: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', marginTop: 32 },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
-  title: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: 0 },
-  subtitle: { fontSize: 14, color: '#6b7280', margin: '4px 0 0' },
-  yearBadge: { backgroundColor: '#1a1a1a', color: '#fff', padding: '6px 14px', borderRadius: 6, fontSize: 14, fontWeight: 700 },
-  content: { display: 'grid', gridTemplateColumns: '200px 1fr', gap: 40, alignItems: 'center' },
-  chartArea: { },
-  svg: { width: '100%', height: 'auto' },
-  legend: { display: 'flex', flexDirection: 'column', gap: 12 },
-  legendItem: { display: 'grid', gridTemplateColumns: '16px 28px 80px 60px 1fr', gap: 8, alignItems: 'center' },
-  legendDot: { width: 16, height: 16, borderRadius: 4 },
-  legendFlag: { fontSize: 18 },
-  legendCountry: { fontSize: 14, fontWeight: 500 },
-  legendValue: { fontSize: 16, fontWeight: 700, textAlign: 'right' },
-  legendAmount: { fontSize: 13, color: '#6b7280', textAlign: 'right' }
-};
-
-// ============================================================
-// 費目別 스택바 차트
-// ============================================================
-const ExpenseStackChart = ({ data }) => {
-  const chartData = useMemo(() => {
-    if (!data || data.length < 2) return [];
-    
-    return data
-      .filter(d => d.country !== '全国籍・地域' && d.country !== 'その他' && d.total > 500)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10)
-      .map(d => ({
-        country: d.country,
-        flag: COUNTRY_FLAGS[d.country],
-        total: d.total,
-        accommodation: d.accommodation,
-        food: d.food,
-        shopping: d.shopping,
-        transport: d.transport,
-        entertainment: d.entertainment,
-        other: d.other,
-        accPct: (d.accommodation / d.total) * 100,
-        foodPct: (d.food / d.total) * 100,
-        shopPct: (d.shopping / d.total) * 100,
-        transPct: (d.transport / d.total) * 100,
-        entPct: (d.entertainment / d.total) * 100,
-        otherPct: (d.other / d.total) * 100
-      }));
-  }, [data]);
-
-  const categories = [
-    { key: 'accPct', label: '宿泊', color: '#1a1a1a' },
-    { key: 'foodPct', label: '飲食', color: '#374151' },
-    { key: 'shopPct', label: '買物', color: '#dc2626' },
-    { key: 'transPct', label: '交通', color: '#2563eb' },
-    { key: 'entPct', label: '娯楽', color: '#059669' },
-    { key: 'otherPct', label: '他', color: '#d1d5db' }
-  ];
-
-  const [hoveredRow, setHoveredRow] = useState(null);
-  const [hoveredCat, setHoveredCat] = useState(null);
-
-  if (chartData.length === 0) return null;
-
-  return (
-    <div style={stackStyles.container}>
-      <h3 style={stackStyles.title}>費目構成比較</h3>
-      <p style={stackStyles.subtitle}>国別の消費内訳を比較（マウスオーバーで詳細表示）</p>
-      
-      <div style={stackStyles.legend}>
-        {categories.map(cat => (
-          <div key={cat.key} style={stackStyles.legendItem}>
-            <div style={{...stackStyles.legendDot, backgroundColor: cat.color}} />
-            <span>{cat.label}</span>
-          </div>
-        ))}
-      </div>
-      
-      <div style={stackStyles.chart}>
-        {chartData.map((d, i) => (
-          <div 
-            key={i} 
-            style={{
-              ...stackStyles.row,
-              backgroundColor: hoveredRow === i ? '#f9fafb' : 'transparent',
-              borderRadius: 6,
-              padding: '8px 0',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseEnter={() => setHoveredRow(i)}
-            onMouseLeave={() => { setHoveredRow(null); setHoveredCat(null); }}
-          >
-            <div style={stackStyles.label}>
-              <span style={stackStyles.flag}>{d.flag}</span>
-              <span style={stackStyles.country}>{d.country}</span>
-            </div>
-            <div style={stackStyles.barContainer}>
-              {categories.map(cat => (
-                <div
-                  key={cat.key}
-                  style={{
-                    ...stackStyles.segment,
-                    width: `${d[cat.key]}%`,
-                    backgroundColor: cat.color,
-                    opacity: hoveredRow === i && hoveredCat && hoveredCat !== cat.key ? 0.3 : 1,
-                    cursor: 'pointer'
-                  }}
-                  onMouseEnter={() => setHoveredCat(cat.key)}
-                  onMouseLeave={() => setHoveredCat(null)}
-                />
-              ))}
-            </div>
-            <div style={stackStyles.valueArea}>
-              {hoveredRow === i && hoveredCat ? (
-                <div style={stackStyles.tooltipInline}>
-                  <span style={{color: categories.find(c => c.key === hoveredCat)?.color, fontWeight: 700}}>
-                    {categories.find(c => c.key === hoveredCat)?.label}
-                  </span>
-                  <span style={{fontWeight: 700}}>{d[hoveredCat]?.toFixed(1)}%</span>
-                </div>
-              ) : (
-                <span style={stackStyles.total}>{formatNumber(d.total, 0)}億円</span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const stackStyles = {
-  container: { backgroundColor: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', marginTop: 32 },
-  title: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: 0 },
-  subtitle: { fontSize: 14, color: '#6b7280', margin: '8px 0 24px' },
-  legend: { display: 'flex', gap: 20, marginBottom: 24, flexWrap: 'wrap' },
-  legendItem: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 },
-  legendDot: { width: 14, height: 14, borderRadius: 3 },
-  chart: { display: 'flex', flexDirection: 'column', gap: 4 },
-  row: { display: 'grid', gridTemplateColumns: '140px 1fr 100px', gap: 16, alignItems: 'center' },
-  label: { display: 'flex', alignItems: 'center', gap: 8 },
-  flag: { fontSize: 18 },
-  country: { fontSize: 14, fontWeight: 500 },
-  barContainer: { display: 'flex', height: 32, borderRadius: 4, overflow: 'hidden' },
-  segment: { height: '100%', transition: 'opacity 0.2s' },
-  valueArea: { textAlign: 'right' },
-  total: { fontSize: 14, fontWeight: 600, color: '#374151' },
-  tooltipInline: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', fontSize: 13 }
-};
-
-// ============================================================
-// YoY 성장 워터폴 차트
-// ============================================================
-const GrowthWaterfall = ({ data, previousData, year }) => {
-  const [hoveredIndex, setHoveredIndex] = useState(null);
-  
-  const waterfallData = useMemo(() => {
-    if (!data || !previousData || data.length < 2 || previousData.length < 2) return [];
-    
-    const current = data[0]; // 全国籍
-    const prev = previousData[0];
-    if (!current || !prev) return [];
-    
-    const categories = [
-      { key: 'accommodation', label: '宿泊' },
-      { key: 'food', label: '飲食' },
-      { key: 'shopping', label: '買物' },
-      { key: 'transport', label: '交通' },
-      { key: 'entertainment', label: '娯楽' },
-      { key: 'other', label: 'その他' }
-    ];
-    
-    return categories.map(cat => ({
-      label: cat.label,
-      current: current[cat.key] || 0,
-      previous: prev[cat.key] || 0,
-      diff: (current[cat.key] || 0) - (prev[cat.key] || 0),
-      growth: prev[cat.key] ? (((current[cat.key] || 0) - prev[cat.key]) / prev[cat.key]) * 100 : 0
-    }));
-  }, [data, previousData]);
-
-  if (waterfallData.length === 0) return null;
-
-  const maxDiff = Math.max(...waterfallData.map(d => Math.abs(d.diff)));
-  const totalDiff = waterfallData.reduce((s, d) => s + d.diff, 0);
-
-  return (
-    <div style={waterfallStyles.container}>
-      <div style={waterfallStyles.header}>
-        <div>
-          <h3 style={waterfallStyles.title}>費目別増減</h3>
-          <p style={waterfallStyles.subtitle}>前年（{parseInt(year) - 1}年）からの変化額</p>
-        </div>
-        <div style={{
-          ...waterfallStyles.totalBadge,
-          backgroundColor: totalDiff >= 0 ? '#dcfce7' : '#fee2e2',
-          color: totalDiff >= 0 ? '#059669' : '#dc2626'
-        }}>
-          合計 {totalDiff >= 0 ? '+' : ''}{formatNumber(totalDiff, 0)}億円
-        </div>
-      </div>
-      
-      <div style={waterfallStyles.chart}>
-        {waterfallData.map((d, i) => (
-          <div 
-            key={i} 
-            style={{
-              ...waterfallStyles.row,
-              backgroundColor: hoveredIndex === i ? '#f9fafb' : 'transparent',
-              borderRadius: 8,
-              padding: '12px 8px',
-              transition: 'background-color 0.2s',
-              cursor: 'pointer'
-            }}
-            onMouseEnter={() => setHoveredIndex(i)}
-            onMouseLeave={() => setHoveredIndex(null)}
-          >
-            <div style={waterfallStyles.label}>{d.label}</div>
-            <div style={waterfallStyles.barArea}>
-              <div style={waterfallStyles.barWrapper}>
-                {d.diff >= 0 ? (
-                  <>
-                    <div style={waterfallStyles.spacer} />
-                    <div style={{
-                      ...waterfallStyles.bar,
-                      width: `${(d.diff / maxDiff) * 45}%`,
-                      backgroundColor: '#059669'
-                    }} />
-                  </>
-                ) : (
-                  <>
-                    <div style={{
-                      ...waterfallStyles.bar,
-                      width: `${(Math.abs(d.diff) / maxDiff) * 45}%`,
-                      backgroundColor: '#dc2626',
-                      marginLeft: 'auto'
-                    }} />
-                    <div style={waterfallStyles.spacer} />
-                  </>
-                )}
-              </div>
-              <div style={waterfallStyles.centerLine} />
-            </div>
-            <div style={waterfallStyles.valueArea}>
-              <div style={{
-                ...waterfallStyles.value,
-                color: d.diff >= 0 ? '#059669' : '#dc2626'
-              }}>
-                {d.diff >= 0 ? '+' : ''}{formatNumber(d.diff, 0)}億円
-              </div>
-              <div style={{
-                ...waterfallStyles.growth,
-                color: d.growth >= 0 ? '#059669' : '#dc2626'
-              }}>
-                {d.growth >= 0 ? '+' : ''}{d.growth.toFixed(1)}%
-              </div>
-            </div>
-            {hoveredIndex === i && (
-              <div style={waterfallStyles.tooltip}>
-                {parseInt(year) - 1}年: {formatNumber(d.previous, 0)}億円 → {year}年: {formatNumber(d.current, 0)}億円
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const waterfallStyles = {
-  container: { backgroundColor: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', marginTop: 32 },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
-  title: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: 0 },
-  subtitle: { fontSize: 14, color: '#6b7280', margin: '4px 0 0' },
-  totalBadge: { padding: '8px 16px', borderRadius: 8, fontSize: 15, fontWeight: 700 },
-  chart: { display: 'flex', flexDirection: 'column', gap: 4 },
-  row: { display: 'grid', gridTemplateColumns: '80px 1fr 140px', gap: 16, alignItems: 'center', position: 'relative' },
-  label: { fontSize: 15, fontWeight: 600, color: '#374151' },
-  barArea: { position: 'relative', height: 36 },
-  barWrapper: { display: 'flex', height: '100%', width: '100%' },
-  spacer: { width: '50%' },
-  bar: { height: '100%', borderRadius: 4, transition: 'width 0.3s' },
-  centerLine: { position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, backgroundColor: '#e5e7eb' },
-  valueArea: { textAlign: 'right' },
-  value: { fontSize: 16, fontWeight: 700 },
-  growth: { fontSize: 13, marginTop: 2 },
-  tooltip: { position: 'absolute', right: 0, top: '100%', marginTop: 4, backgroundColor: '#1a1a1a', color: '#fff', padding: '6px 10px', borderRadius: 4, fontSize: 12, whiteSpace: 'nowrap', zIndex: 10 }
-};
-
-export default function App() {
-  const [year, setYear] = useState('2025');
-  const [activeTab, setActiveTab] = useState('overview');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  
-  const [expenseData, setExpenseData] = useState([]);
-  const [previousExpenseData, setPreviousExpenseData] = useState([]);
-  const [salesData, setSalesData] = useState({});
-  const [expandedCountry, setExpandedCountry] = useState(null);
-  
-  // 트렌드 데이터는 하드코딩 사용 (API 호출 절감)
-  const trendData = TREND_DATA;
-  
-useEffect(() => {
-    const sendHeight = () => {
-      requestAnimationFrame(() => {
-        const height = document.body.scrollHeight;
-        window.parent.postMessage({ type: 'setHeight', height }, '*');
-      });
-    };
-    
-    // 탭 변경 후 약간의 딜레이 후 높이 측정
-    const timer = setTimeout(sendHeight, 500);
-    
-    window.addEventListener('resize', sendHeight);
-    const observer = new MutationObserver(() => {
-      setTimeout(sendHeight, 300);
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', sendHeight);
-      observer.disconnect();
-    };
-  }, [activeTab, loading]);
-
-  useEffect(() => {
-  const handleRequest = (e) => {
-    if (e.data?.type === 'requestHeight') {
-      const height = document.body.scrollHeight;
-      window.parent.postMessage({ type: 'setHeight', height }, '*');
-    }
-  };
-  
-  window.addEventListener('message', handleRequest);
-  return () => window.removeEventListener('message', handleRequest);
-}, []);
-  
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
-      
-      // 년도 변경 시 이전 데이터 초기화
-      setExpenseData([]);
-      setPreviousExpenseData([]);
-      setExpandedCountry(null);
-      
-      try {
-        // 연간 시트에서 데이터 로드 (API 2번만 호출!)
-        await delay(100);
-        const expense = await fetchSheetData(`${year}_年間_図表3`);
-        await delay(200);
-        const visitor = await fetchSheetData(`${year}_年間_図表4`);
-        
-        // 전년도 데이터 로드
-        const prevYear = String(parseInt(year) - 1);
-        await delay(200);
-        const prevExpense = await fetchSheetData(`${prevYear}_年間_図表3`);
-        await delay(200);
-        const prevVisitor = await fetchSheetData(`${prevYear}_年間_図表4`);
-        
-        const parseExpense = (rows) => {
-          if (!rows || rows.length < 5) return [];
-          return rows.slice(4).map(row => ({
-            country: row[0] || '',
-            total: parseNumber(row[1]),
-            accommodation: parseNumber(row[2]),
-            food: parseNumber(row[3]),
-            transport: parseNumber(row[4]),
-            entertainment: parseNumber(row[5]),
-            shopping: parseNumber(row[6]),
-            other: parseNumber(row[7])
-          })).filter(d => d.country);
-        };
-        
-        const parseVisitor = (rows) => {
-          if (!rows || rows.length < 5) return [];
-          return rows.slice(4).map(row => ({
-            country: row[0] || '',
-            perPerson: parseNumber(row[1]),
-            visitors: parseNumber(row[2]),
-            totalSpend: parseNumber(row[3]),
-            avgNights: parseNumber(row[4])
-          })).filter(d => d.country);
-        };
-        
-        const parsedExpense = parseExpense(expense);
-        const parsedVisitor = parseVisitor(visitor);
-        const parsedPrevExpense = parseExpense(prevExpense);
-        const parsedPrevVisitor = parseVisitor(prevVisitor);
-        
-        const merged = parsedExpense.map(exp => {
-          const vis = parsedVisitor.find(v => v.country === exp.country) || {};
-          return { ...exp, ...vis };
-        });
-        
-        const mergedPrev = parsedPrevExpense.map(exp => {
-          const vis = parsedPrevVisitor.find(v => v.country === exp.country) || {};
-          return { ...exp, ...vis };
-        });
-        
-        setExpenseData(merged);
-        setPreviousExpenseData(mergedPrev);
-        
-        // 영업 데이터 초기화
-        setSalesData({});
-        
-      } catch (err) {
-        console.error(err);
-        setError('データの読み込みに失敗しました');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    loadData();
-  }, [year]);
-
-  // 국가 확장 시 해당 국가의 영업(買物상세) 데이터 로드 - 최신 분기 (Q4) 기준
-  const [loadingSales, setLoadingSales] = useState(false);
-  
-  useEffect(() => {
-    const loadSalesData = async () => {
-      if (!expandedCountry) return;
-      
-      // 이미 로드된 데이터가 있으면 스킵
-      if (salesData[expandedCountry]) return;
-      
-      // 영업 시트가 있는 국가 목록
-      const salesCountries = ['韓国', '中国', '台湾', '香港', '米国', 'タイ', 'ベトナム', 'オーストラリア', 'シンガポール', 'マレーシア', 'インドネシア', 'フィリピン', 'インド', '英国', 'ドイツ', 'フランス', 'イタリア', 'スペイン', 'ロシア', 'カナダ'];
-      if (!salesCountries.includes(expandedCountry)) return;
-      
-      setLoadingSales(true);
-      try {
-        await delay(100);
-        const rows = await fetchSheetData(`営業_${expandedCountry}`);
-        if (!rows || rows.length < 5) {
-          setLoadingSales(false);
-          return;
-        }
-        
-        // 연간 데이터: B(1)=2023年年間, C(2)=2024年年間, D(3)=伸び率
-        // 買物品目의 하위항목만 (11행부터)
-        const validItems = ['菓子類', '酒類', '生鮮農産物', 'その他食料品・飲料・たばこ', '化粧品・香水', '医薬品', '健康グッズ・トイレタリー', '衣類', '靴・かばん・革製品', '電気製品', '時計・フィルムカメラ', '宝石・貴金属', '民芸品・伝統工芸品', '本・雑誌・ガイドブックなど', '音楽・映像・ゲームなどソフト', 'その他買物代'];
-        
-        const countryData = rows.slice(4).map(row => {
-          const yoyRaw = String(row[3] || '');
-          let yoyValue;
-          
-          // "%"가 포함되어 있으면 이미 퍼센트 값 (예: "93.2%" → 0.932)
-          if (yoyRaw.includes('%')) {
-            yoyValue = parseFloat(yoyRaw.replace('%', '')) / 100;
-          } else {
-            // 숫자만 있으면 그대로 사용 (예: 0.932)
-            yoyValue = parseNumber(yoyRaw);
-          }
-          
-          return {
-            item: row[0] || '',
-            y2023: parseNumber(row[1]),  // B열: 2023年年間
-            y2024: parseNumber(row[2]),  // C열: 2024年年間
-            yoy: yoyValue
-          };
-        }).filter(d => validItems.includes(d.item) && (d.y2023 > 0 || d.y2024 > 0));
-        
-        if (countryData.length > 0) {
-          setSalesData(prev => ({ ...prev, [expandedCountry]: countryData }));
-        }
-      } catch (err) {
-        console.error(`Error loading sales data for ${expandedCountry}:`, err);
-      } finally {
-        setLoadingSales(false);
-      }
-    };
-    
-    loadSalesData();
-  }, [expandedCountry, salesData]);
-
-  const kpiData = useMemo(() => {
-    const total = expenseData[0];
-    const prev = previousExpenseData.find(d => d.country === '全国籍・地域');
-    if (!total) return null;
-    
-    const shopRatio = total.total ? ((total.shopping / total.total) * 100) : 0;
-    const prevShopRatio = prev?.total ? ((prev.shopping / prev.total) * 100) : 0;
-    
-    return {
-      spend: { value: total.total, change: formatChange(total.total, prev?.total) },
-      visitors: { value: total.visitors ? (total.visitors / 10000) : 0, change: formatChange(total.visitors, prev?.visitors), note: `平均${total.avgNights || '—'}泊` },
-      perPerson: { value: total.perPerson ? (total.perPerson / 10000) : 0, change: formatChange(total.perPerson, prev?.perPerson) },
-      shopRatio: { value: shopRatio, change: prevShopRatio ? { percent: shopRatio - prevShopRatio, isPositive: shopRatio >= prevShopRatio } : null }
-    };
-  }, [expenseData, previousExpenseData]);
-
-  return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={styles.headerInner}>
-          <h1 style={styles.title}>インバウンド消費動向</h1>
-          <p style={styles.subtitle}>訪日外国人消費統計ダッシュボード</p>
-        </div>
-      </header>
-
-      <main style={styles.main}>
-        {error && <div style={styles.errorBox}>{error}</div>}
-        
-        {/* 사분기별 추이 차트 - 항상 먼저 표시 */}
-        <TrendChart 
-          data={trendData} 
-          year={year}
-          onYearSelect={setYear}
-        />
-
-        {/* 스티키 헤더: 연도 선택 + 탭 */}
-        <div style={styles.stickyHeader}>
-          <div style={styles.stickyInner}>
-            <div style={styles.stickyYear}>
-              <span style={styles.stickyYearNum}>{year}</span>
-              <span style={styles.stickyYearUnit}>年</span>
-              <span style={styles.stickyYearNote}>年間データ</span>
-            </div>
-            <div style={styles.stickyButtons}>
-              {['2025', '2024', '2023'].map(y => (
-                <button
-                  key={y}
-                  onClick={() => setYear(y)}
-                  style={{
-                    ...styles.stickyBtn,
-                    ...(year === y ? styles.stickyBtnActive : {})
-                  }}
-                >
-                  {y}
-                </button>
-              ))}
-            </div>
-            <nav style={styles.stickyTabs}>
-              {[
-                { id: 'overview', label: '国別データ' },
-                { id: 'analysis', label: '分析レポート' },
-                { id: 'matrix', label: 'マトリクス' },
-                { id: 'composition', label: '費目構成' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  style={{ ...styles.stickyTab, ...(activeTab === tab.id ? styles.stickyTabActive : {}) }}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
-
-        {loading ? (
-          <div style={styles.loadingBox}>
-            <div style={styles.spinner} />
-          </div>
-        ) : (
-          <>
-            {activeTab === 'overview' && (
-              <>
-                {kpiData && (
-                  <div style={styles.kpiRow}>
-                    <KPICard label="総消費額" value={formatNumber(kpiData.spend.value)} unit="億円" change={kpiData.spend.change} />
-                    <KPICard label="訪日客数" value={formatNumber(kpiData.visitors.value, 1)} unit="万人" change={kpiData.visitors.change} note={kpiData.visitors.note} />
-                    <KPICard label="客単価" value={formatNumber(kpiData.perPerson.value, 1)} unit="万円" change={kpiData.perPerson.change} />
-                    <KPICard label="買物代比率" value={formatNumber(kpiData.shopRatio.value, 1)} unit="%" change={kpiData.shopRatio.change} />
-                  </div>
-                )}
-                <div style={{ marginTop: 24 }}>
-                  <CountryList
-                    data={expenseData}
-                    previousData={previousExpenseData}
-                    expandedCountry={expandedCountry}
-                    setExpandedCountry={setExpandedCountry}
-                    salesData={salesData}
-                    loadingSales={loadingSales}
-                  />
-                </div>
-              </>
-            )}
-            {activeTab === 'matrix' && <MatrixChart data={expenseData} previousData={previousExpenseData} />}
-            {activeTab === 'composition' && <CompositionChart data={expenseData} />}
-            {activeTab === 'analysis' && (
-              <>
-                <YearlyTrendChart />
-                <InsightHighlights data={expenseData} previousData={previousExpenseData} />
-                <RegionComparison data={expenseData} previousData={previousExpenseData} />
-                <RankingAnalysis data={expenseData} previousData={previousExpenseData} />
-                <CategoryComparison data={expenseData} />
-                
-                <CountryCompare data={expenseData} previousData={previousExpenseData} year={year} />
-                <MarketShareChart data={expenseData} year={year} />
-                <ExpenseStackChart data={expenseData} />
-                <GrowthWaterfall data={expenseData} previousData={previousExpenseData} year={year} />
-              </>
-            )}
-          </>
-        )}
-      </main>
-
-      <footer style={styles.footer}>
-        <span>出典：観光庁「訪日外国人消費動向調査」</span>
-        <span>{year}年 年間</span>
-      </footer>
-    </div>
-  );
-}
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#f8fafc',
-    fontFamily: '"Noto Sans JP", "Inter", "Hiragino Kaku Gothic ProN", sans-serif',
-    color: '#1a1a1a',
-    lineHeight: 1.7
-  },
-  header: {
-    backgroundColor: '#1a1a1a',
-    color: '#fff'
-  },
-  headerInner: {
-    maxWidth: 1200,
-    margin: '0 auto',
-    padding: '40px 24px'
-  },
-  title: {
-    margin: 0,
-    fontSize: 'clamp(26px, 4vw, 32px)',
-    fontWeight: 800,
-    letterSpacing: '-0.01em'
-  },
-  subtitle: {
-    margin: '10px 0 0',
-    fontSize: 14,
-    opacity: 0.7,
-    fontWeight: 400
-  },
-  // 스티키 헤더 스타일
-  stickyHeader: {
-    position: 'sticky',
-    top: 0,
-    zIndex: 100,
-    backgroundColor: '#1a1a1a',
-    marginTop: 24,
-    borderRadius: 12,
-    boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
-  },
-  stickyInner: {
+const ctryStyles = {
+  modeToggle: {
     display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '16px 24px',
-    gap: 20,
-    flexWrap: 'wrap'
+    gap: 2,
+    padding: 2,
+    backgroundColor: T.lineSoft,
+    borderRadius: 3,
   },
-  stickyYear: {
-    display: 'flex',
-    alignItems: 'baseline',
-    gap: 4,
-    color: '#fff'
-  },
-  stickyYearNum: {
-    fontSize: 36,
-    fontWeight: 900,
-    letterSpacing: '-0.02em'
-  },
-  stickyYearUnit: {
-    fontSize: 18,
-    fontWeight: 600,
-    opacity: 0.7
-  },
-  stickyYearNote: {
+  modeBtn: {
+    padding: '5px 12px',
     fontSize: 12,
-    opacity: 0.5,
-    marginLeft: 12
-  },
-  stickyButtons: {
-    display: 'flex',
-    gap: 8
-  },
-  stickyBtn: {
-    padding: '8px 16px',
-    fontSize: 14,
-    fontWeight: 600,
-    border: '1px solid rgba(255,255,255,0.3)',
-    borderRadius: 6,
-    backgroundColor: 'transparent',
-    color: 'rgba(255,255,255,0.7)',
-    cursor: 'pointer',
-    transition: 'all 0.2s'
-  },
-  stickyBtnActive: {
-    backgroundColor: '#fff',
-    color: '#1a1a1a',
-    borderColor: '#fff'
-  },
-  stickyTabs: {
-    display: 'flex',
-    gap: 4,
-    alignItems: 'flex-start'
-  },
-  stickyTab: {
-    padding: '10px 18px',
-    fontSize: 14,
     fontWeight: 500,
+    color: T.muted,
+    backgroundColor: 'transparent',
     border: 'none',
-    borderRadius: 6,
-    backgroundColor: 'transparent',
-    color: 'rgba(255,255,255,0.6)',
+    borderRadius: 2,
     cursor: 'pointer',
-    transition: 'all 0.2s'
   },
-  stickyTabActive: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    color: '#fff',
-    fontWeight: 700
-  },
-  periodSelector: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 20,
-    padding: '24px 0',
-    marginTop: 20,
+  modeBtnActive: {
     backgroundColor: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: 8,
-    boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+    color: T.inkDark,
+    fontWeight: 700,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
   },
-  yearSelector: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: '32px 24px',
-    marginTop: 24,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    color: '#fff'
-  },
-  yearDisplay: {
-    display: 'flex',
-    alignItems: 'baseline',
-    gap: 4,
-    marginBottom: 16
-  },
-  yearBig: {
-    fontSize: 72,
-    fontWeight: 900,
-    letterSpacing: '-0.03em',
-    lineHeight: 1
-  },
-  yearUnit: {
-    fontSize: 28,
-    fontWeight: 600,
-    opacity: 0.7
-  },
-  yearButtons: {
-    display: 'flex',
-    gap: 8,
-    marginBottom: 12
-  },
-  yearBtn: {
-    padding: '10px 20px',
-    fontSize: 15,
-    fontWeight: 600,
-    border: '2px solid rgba(255,255,255,0.3)',
-    borderRadius: 6,
-    backgroundColor: 'transparent',
-    color: 'rgba(255,255,255,0.7)',
-    cursor: 'pointer',
-    transition: 'all 0.2s'
-  },
-  yearBtnActive: {
-    backgroundColor: '#fff',
-    color: '#1a1a1a',
-    borderColor: '#fff'
-  },
-  yearNote: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 4
-  },
-  periodLabel: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: '#374151'
-  },
-  periodNote: {
-    fontSize: 13,
-    color: '#6b7280',
-    marginLeft: 12
-  },
-  controls: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16
-  },
-  controlItem: {},
-  select: {
-    padding: '12px 16px',
-    fontSize: 15,
-    border: '1px solid #d1d5db',
-    borderRadius: 6,
-    backgroundColor: '#fff',
-    cursor: 'pointer',
-    fontWeight: 500
-  },
-  insightBar: {
-    maxWidth: 1200,
-    margin: '0 auto',
-    padding: '16px 24px',
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '12px 28px',
-    fontSize: 14,
-    color: '#374151',
-    borderBottom: '1px solid #e5e7eb'
-  },
-  insightItem: {},
-  insightFlag: {
-    marginRight: 4
-  },
-  insightGrowth: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4
-  },
-  insightDecline: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4
-  },
-  insightTotal: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4
-  },
-  insightArrowUp: {
-    color: '#16a34a',
-    fontWeight: 700
-  },
-  insightArrowDown: {
-    color: '#c41e3a',
-    fontWeight: 700
-  },
-  tabs: {
-    maxWidth: 1200,
-    margin: '0 auto',
-    padding: '0 24px',
-    display: 'flex',
-    gap: 4,
-    borderBottom: '1px solid #e5e7eb',
-    backgroundColor: '#fff'
-  },
-  tab: {
-    padding: '16px 24px',
-    fontSize: 15,
-    fontWeight: 500,
-    border: 'none',
-    borderBottom: '3px solid transparent',
-    backgroundColor: 'transparent',
-    color: '#6b7280',
-    cursor: 'pointer',
-    transition: 'all 0.15s'
-  },
-  tabIcon: {
-    fontSize: 14
-  },
-  tabActive: {
-    color: '#1a1a1a',
-    fontWeight: 600,
-    borderBottomColor: '#1a1a1a'
-  },
-  main: {
-    maxWidth: 1200,
-    margin: '0 auto',
-    padding: '32px 24px'
-  },
-  kpiRow: {
+  list: { },
+  row: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: 20,
-    marginBottom: 32
-  },
-  kpiCard: {
-    padding: 24,
-    backgroundColor: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: 8,
-    position: 'relative',
-    overflow: 'hidden',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
-  },
-  kpiHeader: {
-    display: 'flex',
+    gridTemplateColumns: '32px 22px 6px 1fr auto 90px 20px',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12
-  },
-  kpiIcon: {
-    fontSize: 16
-  },
-  kpiLabel: {
-    fontSize: 13,
-    color: '#6b7280',
-    fontWeight: 500
-  },
-  kpiValue: {
-  fontSize: 'clamp(36px, 5vw, 44px)',
-  fontWeight: 800,
-  letterSpacing: '-0.02em'
-},
-  kpiUnit: {
-    fontSize: 16,
-    fontWeight: 500,
-    color: '#6b7280',
-    marginLeft: 6
-  },
-  kpiChange: {
-  fontSize: 13,
-  marginTop: 8,
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6
-},
-changeArrow: {
-  fontSize: 11,
-  fontWeight: 700
-},
-changePercent: {
-  fontSize: 15,
-  fontWeight: 700
-},
-changeLabel: {
-  fontSize: 12,
-  color: '#6b7280',
-  marginLeft: 2
-},
-  kpiNote: {
-    fontSize: 11,
-    color: '#a0aec0',
-    marginTop: 4
-  },
-  listContainer: {
-    backgroundColor: '#fff',
-    border: '1px solid #e2e8f0',
-    borderRadius: 6
-  },
-  listHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 20px',
-    borderBottom: '1px solid #e2e8f0'
-  },
-  listTitle: {
-    margin: 0,
-    fontSize: 15,
-    fontWeight: 600
-  },
-  toggleGroup: {
-    display: 'flex',
-    gap: 4
-  },
-  toggleBtn: {
-    padding: '6px 12px',
-    fontSize: 12,
-    fontWeight: 500,
-    border: '1px solid #e2e8f0',
-    borderRadius: 4,
-    backgroundColor: '#fff',
-    color: '#718096',
-    cursor: 'pointer'
-  },
-  toggleActive: {
-    backgroundColor: '#1a1a1a',
-    borderColor: '#1a1a1a',
-    color: '#fff'
-  },
-  countryRow: {
-    borderBottom: '1px solid #f0f0f0'
-  },
-  countryHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '14px 20px',
+    gap: 10,
+    padding: '14px 12px',
     cursor: 'pointer',
-    transition: 'background-color 0.1s'
+    transition: 'background-color 0.15s',
   },
-  countryLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10
-  },
-  rank: {
-    width: 22,
-    fontSize: 12,
+  rowRank: {
+    fontFamily: T.mono,
+    fontSize: 11,
     fontWeight: 600,
-    color: '#718096'
+    color: T.faint,
+    fontVariantNumeric: 'tabular-nums',
   },
-  flag: {
-    fontSize: 18,
-    lineHeight: 1
-  },
-  regionIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: '50%'
-  },
-  countryName: {
+  rowFlag: { fontSize: 16, textAlign: 'center' },
+  rowName: {
     fontSize: 14,
-    fontWeight: 500
+    fontWeight: 500,
+    color: T.ink,
   },
-  countryRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12
+  rowValue: {
+    textAlign: 'right',
+    minWidth: 90,
   },
-  countryValue: {
-    fontSize: 14,
-    fontWeight: 600
-  },
-  changeText: {
-    fontSize: 12,
-    fontWeight: 500
-  },
-  expandArrow: {
+  rowArrow: {
     fontSize: 10,
-    color: '#a0aec0',
-    transition: 'transform 0.2s'
+    color: T.faint,
+    transition: 'transform 0.2s',
+    textAlign: 'center',
   },
-  expandedContent: {
-    padding: '0 20px 20px',
-    backgroundColor: '#fafafa'
+  expandBox: {
+    padding: '20px 24px 24px',
+    backgroundColor: T.bg,
+    borderTop: `1px solid ${T.lineSoft}`,
   },
-  expenseSection: {
-    marginBottom: 20
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: 600,
-    color: '#4a5568',
+  breakdownTitle: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: T.muted,
+    letterSpacing: '0.1em',
+    textTransform: 'uppercase',
     marginBottom: 12,
-    paddingTop: 16
   },
-  expenseGrid: {
+  breakdownGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-    gap: 12
+    gap: 14,
   },
-  expenseItem: {
-    padding: 12,
+  breakdownCell: {
     backgroundColor: '#fff',
-    border: '1px solid #e2e8f0',
-    borderRadius: 4
+    border: `1px solid ${T.line}`,
+    padding: 12,
+    borderRadius: 3,
   },
-  expenseLabel: {
+  breakdownLabel: {
     display: 'flex',
     justifyContent: 'space-between',
+    alignItems: 'center',
     fontSize: 12,
-    color: '#4a5568',
-    marginBottom: 4
+    color: T.ink,
+    fontWeight: 500,
+    marginBottom: 4,
   },
-  expenseIcon: {
-    marginRight: 2
-  },
-  expenseRatio: {
-    fontWeight: 600
-  },
-  expenseValue: {
-    fontSize: 13,
-    fontWeight: 600,
-    marginBottom: 8
-  },
-  barTrack: {
-    height: 3,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 2
-  },
-  barFill: {
-    height: '100%',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 2,
-    transition: 'width 0.3s'
-  },
-  salesSection: {
-    marginTop: 16
-  },
-  salesLoading: {
-    padding: '20px',
-    textAlign: 'center',
-    fontSize: 12,
-    color: '#718096',
-    backgroundColor: '#f7f7f7',
-    borderRadius: 4
-  },
-  salesTable: {
-    width: '100%',
-    fontSize: 12,
-    borderCollapse: 'collapse'
-  },
-  th: {
-    textAlign: 'left',
-    padding: '10px 8px',
-    borderBottom: '1px solid #e2e8f0',
-    fontWeight: 600,
-    color: '#4a5568'
-  },
-  thRight: {
-    textAlign: 'right',
-    padding: '10px 8px',
-    borderBottom: '1px solid #e2e8f0',
-    fontWeight: 600,
-    color: '#4a5568'
-  },
-  td: {
-    padding: '10px 8px',
-    borderBottom: '1px solid #f0f0f0'
-  },
-  tdRight: {
-    textAlign: 'right',
-    padding: '10px 8px',
-    borderBottom: '1px solid #f0f0f0'
+  breakdownValue: {
+    display: 'flex',
+    alignItems: 'baseline',
   },
   moreBtn: {
     width: '100%',
-    padding: 14,
-    fontSize: 13,
-    fontWeight: 500,
-    border: 'none',
+    padding: 12,
+    fontSize: 12,
+    fontWeight: 600,
+    color: T.muted,
     backgroundColor: 'transparent',
-    color: '#718096',
-    cursor: 'pointer'
+    border: `1px dashed ${T.line}`,
+    borderRadius: 3,
+    cursor: 'pointer',
+    marginTop: 8,
   },
   regionBlock: {
-    borderBottom: '1px solid #e2e8f0'
+    marginBottom: 24,
   },
-  regionHeader: {
+  regionHdr: {
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
-    padding: '14px 20px',
-    backgroundColor: '#f7f7f7'
-  },
-  regionIcon: {
-    fontSize: 16
+    padding: '12px 0',
+    borderBottom: `1px solid ${T.line}`,
+    marginBottom: 4,
   },
   regionName: {
-    fontSize: 13,
-    fontWeight: 600
+    fontFamily: T.serif,
+    fontSize: 16,
+    fontWeight: 700,
+    color: T.inkDark,
+  },
+  regionCount: {
+    fontSize: 11,
+    color: T.faint,
+    marginLeft: 10,
   },
   regionTotal: {
     marginLeft: 'auto',
-    fontSize: 13,
-    color: '#718096'
   },
-  chartBox: {
-    backgroundColor: '#fff',
-    border: '1px solid #e2e8f0',
-    borderRadius: 6,
-    padding: 24
-  },
-  chartTitle: {
-    margin: '0 0 8px',
-    fontSize: 15,
-    fontWeight: 600,
-    textAlign: 'center'
-  },
-  chartSubtitle: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: 24,
-    marginBottom: 16,
+  salesTbl: {
+    width: '100%',
+    borderCollapse: 'collapse',
     fontSize: 12,
-    color: '#4a5568'
   },
-  legendBar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    color: '#374151',
-    fontWeight: 500
-  },
-  legendLine: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    color: '#dc2626',
-    fontWeight: 500
-  },
-  yearLabelsContainer: {
-    display: 'flex',
-    justifyContent: 'space-around',
-    paddingTop: 12,
-    marginTop: 8,
-    marginLeft: 50,
-    marginRight: 50
-  },
-  yearLabelGroup: {
-    flex: 1,
-    textAlign: 'center',
-    position: 'relative'
-  },
-  yearBracket: {
-    position: 'absolute',
-    top: -8,
-    left: '10%',
-    right: '10%',
-    height: 6,
-    borderLeft: '1px solid #cbd5e0',
-    borderRight: '1px solid #cbd5e0',
-    borderTop: '1px solid #cbd5e0'
-  },
-  yearLabel: {
-    fontSize: 12,
-    fontWeight: 600,
-    color: '#4a5568',
-    paddingTop: 4
-  },
-  chartFootnote: {
-    marginTop: 12,
+  th: {
+    textAlign: 'left',
+    padding: '8px 10px',
+    borderBottom: `2px solid ${T.line}`,
     fontSize: 11,
-    color: '#718096',
-    textAlign: 'right'
+    fontWeight: 700,
+    color: T.muted,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
   },
-  noDataNote: {
-    fontSize: 12,
-    color: '#718096',
-    marginBottom: 16,
-    padding: '8px 12px',
-    backgroundColor: '#f7f7f7',
-    borderRadius: 4
+  thR: {
+    textAlign: 'right',
+    padding: '8px 10px',
+    borderBottom: `2px solid ${T.line}`,
+    fontSize: 11,
+    fontWeight: 700,
+    color: T.muted,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
   },
-  noDataMessage: {
-    textAlign: 'center',
-    padding: 60,
-    color: '#a0aec0',
-    fontSize: 14
+  td: {
+    padding: '8px 10px',
+    borderBottom: `1px solid ${T.lineSoft}`,
+    color: T.ink,
   },
-  tooltip: {
-    backgroundColor: '#fff',
-    border: '1px solid #e2e8f0',
-    borderRadius: 4,
-    padding: 12,
-    fontSize: 12,
-    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+  tdR: {
+    padding: '8px 10px',
+    borderBottom: `1px solid ${T.lineSoft}`,
+    textAlign: 'right',
+    fontFamily: T.mono,
+    fontVariantNumeric: 'tabular-nums',
+    color: T.ink,
   },
-  legendRow: {
+};
+
+// ============================================================
+// TAB 3: 構成 (Composition) - Expense breakdown focus
+// ============================================================
+const CompositionTab = ({ data, prev, sheets }) => {
+  const totalRow = data?.[0];
+  const prevTotal = prev?.[0];
+
+  const overallStack = useMemo(() => {
+    if (!totalRow) return [];
+    const cats = [
+      { key: 'accommodation', label: '宿泊費', color: '#1c1917' },
+      { key: 'food', label: '飲食費', color: '#44403c' },
+      { key: 'transport', label: '交通費', color: '#78716c' },
+      { key: 'entertainment', label: '娯楽等', color: '#a8a29e' },
+      { key: 'shopping', label: '買物代', color: T.accent },
+      { key: 'other', label: 'その他', color: '#d6d3d1' },
+    ];
+    return cats.map(c => ({
+      ...c,
+      value: totalRow[c.key] || 0,
+      share: totalRow.total ? (totalRow[c.key] / totalRow.total) * 100 : 0,
+      prevValue: prevTotal?.[c.key] || 0,
+    }));
+  }, [totalRow, prevTotal]);
+
+  const topStacks = useMemo(() => {
+    if (!data?.length) return [];
+    return data
+      .filter(d => d.country !== '全国籍・地域' && d.country !== 'その他' && d.total > 200)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 12)
+      .map(d => ({
+        country: d.country,
+        total: d.total,
+        acc: d.total ? (d.accommodation / d.total) * 100 : 0,
+        food: d.total ? (d.food / d.total) * 100 : 0,
+        trans: d.total ? (d.transport / d.total) * 100 : 0,
+        ent: d.total ? (d.entertainment / d.total) * 100 : 0,
+        shop: d.total ? (d.shopping / d.total) * 100 : 0,
+        oth: d.total ? (d.other / d.total) * 100 : 0,
+      }));
+  }, [data]);
+
+  return (
+    <div style={{ display: 'grid', gap: 24 }}>
+      {/* Overall composition */}
+      <Card>
+        <SectionTitle
+          kicker="Overall Composition"
+          title="全体 費目構成"
+          subtitle={`${sheets?.periodLabel} 全国籍・地域`}
+        />
+        <div style={cmpStyles.overallBar}>
+          {overallStack.map(s => (
+            <div key={s.key} style={{
+              width: `${s.share}%`,
+              backgroundColor: s.color,
+              height: 48,
+            }} title={`${s.label}: ${s.share.toFixed(1)}%`} />
+          ))}
+        </div>
+        <div style={cmpStyles.overallLegend}>
+          {overallStack.map(s => {
+            const chg = s.prevValue ? pctChange(s.value, s.prevValue) : null;
+            return (
+              <div key={s.key} style={cmpStyles.overallItem}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ width: 10, height: 10, backgroundColor: s.color, display: 'inline-block' }} />
+                  <span style={{ fontSize: 13, fontWeight: 500, color: T.ink }}>{s.label}</span>
+                </div>
+                <div style={{
+                  fontFamily: T.serif, fontSize: 22, fontWeight: 700, color: T.inkDark,
+                  fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
+                }}>
+                  {s.share.toFixed(1)}<span style={{ fontSize: 13, color: T.muted, marginLeft: 2 }}>%</span>
+                </div>
+                <div style={{ fontSize: 11, color: T.muted, marginTop: 2, fontFamily: T.mono }}>
+                  {formatNum(s.value, 0)}億円
+                  {chg && <span style={{ marginLeft: 6 }}><Delta change={chg} size="sm" /></span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* Country comparison */}
+      <Card>
+        <SectionTitle
+          kicker="By Country"
+          title="国別 費目比率"
+          subtitle="上位12市場の費目構成を比較"
+        />
+        <div style={cmpStyles.stackLegend}>
+          {[
+            { label: '宿泊', color: '#1c1917' },
+            { label: '飲食', color: '#44403c' },
+            { label: '交通', color: '#78716c' },
+            { label: '娯楽', color: '#a8a29e' },
+            { label: '買物', color: T.accent },
+            { label: 'その他', color: '#d6d3d1' },
+          ].map(l => (
+            <div key={l.label} style={cmpStyles.legendItem}>
+              <span style={{ width: 12, height: 12, backgroundColor: l.color }} />
+              <span>{l.label}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {topStacks.map(s => (
+            <div key={s.country} style={cmpStyles.stackRow} className="stack-row">
+              <div style={cmpStyles.stackLabel}>
+                <span style={{ fontSize: 14 }}>{COUNTRY_FLAGS[s.country]}</span>
+                <span style={{ fontSize: 13, color: T.ink, fontWeight: 500 }}>{s.country}</span>
+              </div>
+              <div style={cmpStyles.stackBars}>
+                <div style={{ width: `${s.acc}%`, backgroundColor: '#1c1917' }} />
+                <div style={{ width: `${s.food}%`, backgroundColor: '#44403c' }} />
+                <div style={{ width: `${s.trans}%`, backgroundColor: '#78716c' }} />
+                <div style={{ width: `${s.ent}%`, backgroundColor: '#a8a29e' }} />
+                <div style={{ width: `${s.shop}%`, backgroundColor: T.accent }} />
+                <div style={{ width: `${s.oth}%`, backgroundColor: '#d6d3d1' }} />
+              </div>
+              <div style={cmpStyles.stackTotal}>
+                <BigNum value={formatOku(s.total)} unit="億" size="md" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+const cmpStyles = {
+  overallBar: {
     display: 'flex',
-    justifyContent: 'center',
-    gap: 20,
-    marginTop: 20
+    width: '100%',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 20,
+    border: `1px solid ${T.line}`,
+  },
+  overallLegend: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+    gap: 16,
+  },
+  overallItem: {},
+  stackLegend: {
+    display: 'flex',
+    gap: 16,
+    marginBottom: 18,
+    flexWrap: 'wrap',
+    paddingBottom: 12,
+    borderBottom: `1px solid ${T.lineSoft}`,
   },
   legendItem: {
     display: 'flex',
     alignItems: 'center',
     gap: 6,
     fontSize: 12,
-    color: '#4a5568'
+    color: T.muted,
   },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: '50%'
+  stackRow: {
+    display: 'grid',
+    gridTemplateColumns: '140px 1fr 80px',
+    alignItems: 'center',
+    gap: 14,
+    padding: '6px 0',
   },
-  loadingBox: {
+  stackLabel: {
     display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  stackBars: {
+    display: 'flex',
+    height: 22,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  stackTotal: {
+    textAlign: 'right',
+  },
+};
+
+// ============================================================
+// TAB 4: 分析 (Analysis) - Sub-tabs
+// ============================================================
+const AnalysisTab = ({ data, prev, sheets }) => {
+  const [sub, setSub] = useState('matrix');
+  const subs = [
+    { id: 'matrix', label: 'ポジショニング' },
+    { id: 'share', label: '市場シェア' },
+    { id: 'growth', label: '増減分析' },
+    { id: 'compare', label: '国別比較' },
+  ];
+
+  return (
+    <div style={{ display: 'grid', gap: 20 }}>
+      <div style={anlStyles.subNav}>
+        {subs.map(s => (
+          <button
+            key={s.id}
+            onClick={() => setSub(s.id)}
+            style={{
+              ...anlStyles.subBtn,
+              ...(sub === s.id ? anlStyles.subBtnActive : {}),
+            }}
+          >{s.label}</button>
+        ))}
+      </div>
+      {sub === 'matrix' && <MatrixSection data={data} prev={prev} sheets={sheets} />}
+      {sub === 'share' && <MarketShareSection data={data} sheets={sheets} />}
+      {sub === 'growth' && <GrowthSection data={data} prev={prev} sheets={sheets} />}
+      {sub === 'compare' && <CompareSection data={data} prev={prev} sheets={sheets} />}
+    </div>
+  );
+};
+
+const anlStyles = {
+  subNav: {
+    display: 'flex',
+    gap: 4,
+    padding: 4,
+    backgroundColor: T.surface,
+    border: `1px solid ${T.line}`,
+    borderRadius: 3,
+    alignSelf: 'flex-start',
+  },
+  subBtn: {
+    padding: '8px 16px',
+    fontSize: 13,
+    fontWeight: 500,
+    color: T.muted,
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderRadius: 2,
+    cursor: 'pointer',
+    fontFamily: T.sans,
+  },
+  subBtnActive: {
+    backgroundColor: T.inkDark,
+    color: '#fff',
+    fontWeight: 700,
+  },
+};
+
+// --- Analysis: Matrix ---
+const MatrixSection = ({ data, prev, sheets }) => {
+  const chartData = useMemo(() => {
+    if (!data?.length) return [];
+    const prevMap = {};
+    (prev || []).forEach(p => { prevMap[p.country] = p; });
+    return data
+      .filter(d => d.country !== '全国籍・地域' && d.country !== 'その他' && d.total > 100 && d.perPerson > 0)
+      .map(d => {
+        const pp = prevMap[d.country];
+        const growth = pp?.total ? ((d.total - pp.total) / pp.total) * 100 : 0;
+        return {
+          country: d.country,
+          flag: COUNTRY_FLAGS[d.country],
+          growth,
+          perPerson: d.perPerson / 10000,
+          total: d.total,
+          region: getRegion(d.country),
+          hasPrev: !!pp?.total,
+        };
+      });
+  }, [data, prev]);
+
+  return (
+    <Card>
+      <SectionTitle
+        kicker="Positioning Matrix"
+        title="成長率 × 客単価"
+        subtitle="バブルサイズ = 消費額規模"
+      />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: 24 }} className="matrix-grid">
+        <ResponsiveContainer width="100%" height={420}>
+          <ScatterChart margin={{ top: 20, right: 20, bottom: 40, left: 40 }}>
+            <CartesianGrid strokeDasharray="2 4" stroke={T.line} />
+            <XAxis
+              type="number"
+              dataKey="growth"
+              tick={{ fontSize: 11, fill: T.muted, fontFamily: T.mono }}
+              axisLine={{ stroke: T.line }}
+              tickLine={false}
+              tickFormatter={(v) => `${v}%`}
+              label={{ value: '成長率（前期比）', position: 'bottom', offset: 20, fontSize: 11, fill: T.muted }}
+            />
+            <YAxis
+              type="number"
+              dataKey="perPerson"
+              tick={{ fontSize: 11, fill: T.muted, fontFamily: T.mono }}
+              axisLine={{ stroke: T.line }}
+              tickLine={false}
+              tickFormatter={(v) => `${v}万`}
+              label={{ value: '客単価（万円）', angle: -90, position: 'left', offset: 20, fontSize: 11, fill: T.muted }}
+            />
+            <ZAxis dataKey="total" range={[80, 800]} />
+            <Tooltip
+              content={({ payload }) => {
+                if (!payload?.[0]) return null;
+                const d = payload[0].payload;
+                return (
+                  <div style={trStyles.tip}>
+                    <div style={trStyles.tipLabel}>{d.flag} {d.country}</div>
+                    <div style={trStyles.tipRow}><span>成長率</span><span style={trStyles.tipVal}>{d.hasPrev ? `${d.growth >= 0 ? '+' : ''}${d.growth.toFixed(1)}%` : 'N/A'}</span></div>
+                    <div style={trStyles.tipRow}><span>客単価</span><span style={trStyles.tipVal}>{d.perPerson.toFixed(1)}万円</span></div>
+                    <div style={trStyles.tipRow}><span>消費額</span><span style={trStyles.tipVal}>{formatOku(d.total)}億円</span></div>
+                  </div>
+                );
+              }}
+            />
+            <Scatter data={chartData}>
+              {chartData.map((e, i) => (
+                <Cell key={i} fill={T.region[e.region]} fillOpacity={0.75} stroke={T.region[e.region]} />
+              ))}
+            </Scatter>
+          </ScatterChart>
+        </ResponsiveContainer>
+
+        <div>
+          <div style={mxStyles.listTitle}>主要市場</div>
+          <div style={mxStyles.list}>
+            {[...chartData].sort((a, b) => b.total - a.total).slice(0, 12).map((d, i) => (
+              <div key={d.country} style={mxStyles.listRow}>
+                <span style={{
+                  fontFamily: T.mono, fontSize: 10, color: T.faint, minWidth: 20,
+                  fontVariantNumeric: 'tabular-nums',
+                }}>{String(i + 1).padStart(2, '0')}</span>
+                <span style={{ fontSize: 14 }}>{d.flag}</span>
+                <span style={{ fontSize: 12, color: T.ink, fontWeight: 500, flex: 1 }}>{d.country}</span>
+                <Delta change={{ value: d.growth, positive: d.growth >= 0 }} size="sm" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={mxStyles.legend}>
+        {Object.entries(T.region).map(([r, c]) => (
+          <div key={r} style={mxStyles.legendItem}>
+            <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: c, display: 'inline-block' }} />
+            <span>{r}</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+};
+
+const mxStyles = {
+  listTitle: {
+    fontSize: 11, fontWeight: 700, color: T.muted,
+    letterSpacing: '0.1em', textTransform: 'uppercase',
+    marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid ${T.line}`,
+  },
+  list: { display: 'flex', flexDirection: 'column', gap: 8 },
+  listRow: { display: 'flex', alignItems: 'center', gap: 8 },
+  legend: {
+    display: 'flex', gap: 18, justifyContent: 'center',
+    marginTop: 20, paddingTop: 16, borderTop: `1px solid ${T.line}`,
+    fontSize: 12, color: T.muted,
+  },
+  legendItem: { display: 'flex', alignItems: 'center', gap: 6 },
+};
+
+// --- Analysis: Market Share ---
+const MarketShareSection = ({ data, sheets }) => {
+  const [hovered, setHovered] = useState(null);
+  const share = useMemo(() => {
+    if (!data || data.length < 2) return [];
+    const tot = data[0]?.total || 0;
+    const countries = data.slice(1).filter(d => d.country !== 'その他');
+    const sorted = [...countries].sort((a, b) => b.total - a.total);
+    const top6 = sorted.slice(0, 6);
+    const othTot = sorted.slice(6).reduce((s, c) => s + c.total, 0)
+      + (data.find(d => d.country === 'その他')?.total || 0);
+    const palette = [T.inkDark, T.accent, '#44403c', '#78716c', '#a8a29e', '#d6d3d1', T.lineSoft];
+    const res = top6.map((c, i) => ({
+      country: c.country, value: c.total, share: (c.total / tot) * 100,
+      flag: COUNTRY_FLAGS[c.country], color: palette[i],
+    }));
+    if (othTot > 0) res.push({
+      country: 'その他', value: othTot, share: (othTot / tot) * 100,
+      flag: '—', color: palette[6],
+    });
+    return res;
+  }, [data]);
+
+  let cumul = 0;
+  return (
+    <Card>
+      <SectionTitle
+        kicker="Market Share"
+        title="市場シェア"
+        subtitle={`${sheets?.periodLabel} 国別消費額の構成比`}
+      />
+      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 40, alignItems: 'center' }} className="share-grid">
+        <svg viewBox="0 0 100 100" style={{ width: '100%' }}>
+          {share.map((s, i) => {
+            const start = cumul; cumul += s.share;
+            const sa = (start / 100) * 360 - 90;
+            const ea = (cumul / 100) * 360 - 90;
+            const sr = (sa * Math.PI) / 180, er = (ea * Math.PI) / 180;
+            const x1 = 50 + 42 * Math.cos(sr), y1 = 50 + 42 * Math.sin(sr);
+            const x2 = 50 + 42 * Math.cos(er), y2 = 50 + 42 * Math.sin(er);
+            const la = s.share > 50 ? 1 : 0;
+            const isH = hovered === i;
+            return (
+              <path
+                key={i}
+                d={`M 50 50 L ${x1} ${y1} A 42 42 0 ${la} 1 ${x2} ${y2} Z`}
+                fill={s.color}
+                opacity={hovered === null ? 1 : isH ? 1 : 0.4}
+                style={{ transition: 'opacity 0.2s', cursor: 'pointer' }}
+                onMouseEnter={() => setHovered(i)}
+                onMouseLeave={() => setHovered(null)}
+              />
+            );
+          })}
+          <circle cx="50" cy="50" r="26" fill={T.surface} />
+          {hovered !== null && (
+            <text x="50" y="48" textAnchor="middle" style={{ fontSize: 9, fontWeight: 700, fill: T.inkDark, fontFamily: T.serif }}>
+              {share[hovered].share.toFixed(1)}%
+            </text>
+          )}
+          {hovered !== null && (
+            <text x="50" y="56" textAnchor="middle" style={{ fontSize: 4, fill: T.muted }}>
+              {share[hovered].country}
+            </text>
+          )}
+        </svg>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {share.map((s, i) => (
+            <div key={i}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              style={{
+                ...msStyles.row,
+                backgroundColor: hovered === i ? T.lineSoft : 'transparent',
+              }}
+            >
+              <span style={{ width: 14, height: 14, backgroundColor: s.color }} />
+              <span style={msStyles.flag}>{s.flag}</span>
+              <span style={msStyles.country}>{s.country}</span>
+              <span style={msStyles.pct}>{s.share.toFixed(1)}%</span>
+              <span style={msStyles.val}>{formatOku(s.value, 0)}億円</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+};
+
+const msStyles = {
+  row: {
+    display: 'grid',
+    gridTemplateColumns: '14px 20px 1fr 60px 100px',
+    alignItems: 'center',
+    gap: 10,
+    padding: '8px 10px',
+    borderRadius: 3,
+    transition: 'background-color 0.15s',
+    cursor: 'pointer',
+  },
+  flag: { fontSize: 14 },
+  country: { fontSize: 14, color: T.ink, fontWeight: 500 },
+  pct: {
+    fontFamily: T.serif, fontSize: 18, fontWeight: 700,
+    color: T.inkDark, textAlign: 'right',
+    fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em',
+  },
+  val: {
+    fontFamily: T.mono, fontSize: 12, color: T.muted,
+    textAlign: 'right', fontVariantNumeric: 'tabular-nums',
+  },
+};
+
+// --- Analysis: Growth Waterfall ---
+const GrowthSection = ({ data, prev, sheets }) => {
+  const waterfall = useMemo(() => {
+    if (!data?.length || !prev?.length) return null;
+    const cur = data[0], pv = prev[0];
+    if (!cur || !pv) return null;
+    const cats = [
+      { key: 'accommodation', label: '宿泊' },
+      { key: 'food', label: '飲食' },
+      { key: 'shopping', label: '買物' },
+      { key: 'transport', label: '交通' },
+      { key: 'entertainment', label: '娯楽' },
+      { key: 'other', label: 'その他' },
+    ];
+    const items = cats.map(c => ({
+      label: c.label,
+      current: cur[c.key] || 0,
+      previous: pv[c.key] || 0,
+      diff: (cur[c.key] || 0) - (pv[c.key] || 0),
+      growth: pv[c.key] ? (((cur[c.key] || 0) - pv[c.key]) / pv[c.key]) * 100 : 0,
+    }));
+    const totalDiff = items.reduce((s, d) => s + d.diff, 0);
+    return { items, totalDiff };
+  }, [data, prev]);
+
+  if (!waterfall) return <Card><div style={{ color: T.muted, padding: 20 }}>データ不足</div></Card>;
+  const maxDiff = Math.max(...waterfall.items.map(d => Math.abs(d.diff)));
+
+  return (
+    <Card>
+      <SectionTitle
+        kicker="Year-on-Year"
+        title="費目別 増減"
+        subtitle={`${sheets?.prevLabel} → ${sheets?.periodLabel}`}
+        aside={
+          <div style={{
+            padding: '8px 16px',
+            border: `1px solid ${waterfall.totalDiff >= 0 ? T.positive : T.negative}`,
+            borderRadius: 3,
+            color: waterfall.totalDiff >= 0 ? T.positive : T.negative,
+            fontFamily: T.mono,
+            fontSize: 14,
+            fontWeight: 700,
+          }}>
+            合計 {waterfall.totalDiff >= 0 ? '+' : ''}{formatNum(waterfall.totalDiff, 0)}億円
+          </div>
+        }
+      />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {waterfall.items.map((d, i) => (
+          <div key={i} style={gsStyles.row}>
+            <div style={gsStyles.label}>{d.label}</div>
+            <div style={gsStyles.barArea}>
+              <div style={gsStyles.center} />
+              {d.diff >= 0 ? (
+                <>
+                  <div style={{ width: '50%' }} />
+                  <div style={{
+                    width: `${(d.diff / maxDiff) * 48}%`,
+                    height: 28, backgroundColor: T.positive, borderRadius: 2,
+                  }} />
+                </>
+              ) : (
+                <>
+                  <div style={{ width: `${(1 - Math.abs(d.diff) / maxDiff * 0.48) * 50}%` }} />
+                  <div style={{
+                    width: `${(Math.abs(d.diff) / maxDiff) * 48}%`,
+                    height: 28, backgroundColor: T.negative, borderRadius: 2,
+                  }} />
+                </>
+              )}
+            </div>
+            <div style={gsStyles.values}>
+              <div style={{
+                fontFamily: T.mono, fontSize: 14, fontWeight: 700,
+                color: d.diff >= 0 ? T.positive : T.negative,
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {d.diff >= 0 ? '+' : ''}{formatNum(d.diff, 0)}
+              </div>
+              <Delta change={{ value: d.growth, positive: d.growth >= 0 }} size="sm" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+};
+
+const gsStyles = {
+  row: {
+    display: 'grid',
+    gridTemplateColumns: '80px 1fr 120px',
+    alignItems: 'center',
+    gap: 16,
+    padding: '10px 4px',
+    borderBottom: `1px solid ${T.lineSoft}`,
+  },
+  label: {
+    fontSize: 13, fontWeight: 600, color: T.ink,
+  },
+  barArea: {
+    position: 'relative',
+    height: 28,
+    display: 'flex',
+    alignItems: 'center',
+  },
+  center: {
+    position: 'absolute', left: '50%', top: 0, bottom: 0,
+    width: 1, backgroundColor: T.line,
+  },
+  values: {
+    textAlign: 'right',
+  },
+};
+
+// --- Analysis: Country Compare ---
+const CompareSection = ({ data, prev, sheets }) => {
+  const countries = useMemo(() => {
+    if (!data) return [];
+    return data.filter(d => d.country !== '全国籍・地域' && d.country !== 'その他').map(d => d.country);
+  }, [data]);
+
+  const [c1, setC1] = useState('');
+  const [c2, setC2] = useState('');
+  const [c3, setC3] = useState('');
+
+  useEffect(() => {
+    if (countries.length >= 3 && !c1) {
+      setC1(countries[0]); setC2(countries[1]); setC3(countries[2]);
+    }
+  }, [countries, c1]);
+
+  const getData = (n) => {
+    const cur = data?.find(d => d.country === n);
+    const pv = prev?.find(d => d.country === n);
+    if (!cur) return null;
+    const growth = pv?.total ? ((cur.total - pv.total) / pv.total) * 100 : 0;
+    return {
+      ...cur,
+      growth,
+      shopRatio: cur.total ? (cur.shopping / cur.total) * 100 : 0,
+      perPersonMan: cur.perPerson ? cur.perPerson / 10000 : 0,
+      visitorsMan: cur.visitors ? cur.visitors / 10000 : 0,
+    };
+  };
+
+  const all = [getData(c1), getData(c2), getData(c3)].filter(Boolean);
+  if (!all.length) return null;
+
+  const metrics = [
+    { label: '消費額', key: 'total', unit: '億円', fmt: v => formatNum(v, 0) },
+    { label: '訪日客数', key: 'visitorsMan', unit: '万人', fmt: v => formatNum(v, 1) },
+    { label: '客単価', key: 'perPersonMan', unit: '万円', fmt: v => formatNum(v, 1) },
+    { label: '成長率', key: 'growth', unit: '%', fmt: v => (v >= 0 ? '+' : '') + v.toFixed(1) },
+    { label: '買物比率', key: 'shopRatio', unit: '%', fmt: v => v.toFixed(1) },
+    { label: '平均泊数', key: 'avgNights', unit: '泊', fmt: v => (v || 0).toFixed(1) },
+  ];
+
+  return (
+    <Card>
+      <SectionTitle
+        kicker="Side-by-Side"
+        title="国別比較"
+        subtitle="最大3市場を選択して詳細比較"
+      />
+      <div style={csStyles.selectors}>
+        {[{v: c1, set: setC1}, {v: c2, set: setC2}, {v: c3, set: setC3}].map((sel, i) => (
+          <React.Fragment key={i}>
+            <select value={sel.v} onChange={e => sel.set(e.target.value)} style={csStyles.select}>
+              {i === 2 && <option value="">— 選択なし —</option>}
+              {countries.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {i < 2 && <span style={csStyles.vs}>VS</span>}
+          </React.Fragment>
+        ))}
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `120px repeat(${all.length}, 1fr)`,
+        gap: 0,
+      }}>
+        <div style={csStyles.hdrCell}></div>
+        {all.map((d, i) => (
+          <div key={i} style={csStyles.hdrCountry}>
+            <span style={{ fontSize: 22 }}>{COUNTRY_FLAGS[d.country]}</span>
+            <span style={{
+              fontFamily: T.serif, fontSize: 18, fontWeight: 700,
+              color: T.inkDark,
+            }}>{d.country}</span>
+          </div>
+        ))}
+
+        {metrics.map(m => {
+          const vals = all.map(d => d[m.key] || 0);
+          const maxV = Math.max(...vals);
+          return (
+            <React.Fragment key={m.key}>
+              <div style={csStyles.rowLabel}>{m.label}</div>
+              {all.map((d, i) => {
+                const v = d[m.key] || 0;
+                const isMax = v === maxV && vals.filter(x => x === maxV).length === 1;
+                return (
+                  <div key={i} style={{
+                    ...csStyles.rowValue,
+                    backgroundColor: isMax ? '#f0fdf4' : 'transparent',
+                  }}>
+                    <span style={{
+                      fontFamily: T.serif, fontSize: 22, fontWeight: 700,
+                      color: T.inkDark, fontVariantNumeric: 'tabular-nums',
+                      letterSpacing: '-0.02em',
+                    }}>{m.fmt(v)}</span>
+                    <span style={{ fontSize: 11, color: T.muted, marginLeft: 3 }}>{m.unit}</span>
+                    {isMax && <span style={csStyles.winBadge}>TOP</span>}
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </Card>
+  );
+};
+
+const csStyles = {
+  selectors: {
+    display: 'flex',
+    alignItems: 'center',
     justifyContent: 'center',
-    padding: 60
+    gap: 12,
+    marginBottom: 28,
+    flexWrap: 'wrap',
   },
-  spinner: {
-    width: 32,
-    height: 32,
-    border: '2px solid #e2e8f0',
-    borderTop: '2px solid #1a1a1a',
-    borderRadius: '50%',
-    animation: 'spin 0.8s linear infinite'
+  select: {
+    padding: '10px 14px',
+    fontSize: 14,
+    fontWeight: 600,
+    border: `1px solid ${T.line}`,
+    borderRadius: 3,
+    backgroundColor: '#fff',
+    cursor: 'pointer',
+    fontFamily: T.sans,
+    minWidth: 140,
+    color: T.inkDark,
   },
-  errorBox: {
+  vs: {
+    fontFamily: T.mono,
+    fontSize: 12,
+    fontWeight: 700,
+    color: T.faint,
+    letterSpacing: '0.1em',
+  },
+  hdrCell: {
+    borderBottom: `2px solid ${T.inkDark}`,
+    padding: '16px 0',
+  },
+  hdrCountry: {
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '16px 12px',
+    borderBottom: `2px solid ${T.inkDark}`,
+  },
+  rowLabel: {
+    padding: '14px 0',
+    fontSize: 13, fontWeight: 600, color: T.muted,
+    borderBottom: `1px solid ${T.lineSoft}`,
+    textTransform: 'uppercase', letterSpacing: '0.05em',
+  },
+  rowValue: {
+    padding: '14px 12px',
+    display: 'flex', alignItems: 'baseline',
+    borderBottom: `1px solid ${T.lineSoft}`,
+    borderRadius: 2,
+  },
+  winBadge: {
+    marginLeft: 10,
+    fontSize: 10, fontWeight: 700,
+    color: T.positive,
+    padding: '2px 6px',
+    border: `1px solid ${T.positive}`,
+    borderRadius: 2,
+    letterSpacing: '0.05em',
+  },
+};
+
+// ============================================================
+// MAIN APP
+// ============================================================
+export default function App() {
+  const [period, setPeriod] = useState('2026Q1');
+  const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [data, setData] = useState([]);
+  const [prev, setPrev] = useState([]);
+  const [expanded, setExpanded] = useState(null);
+  const [salesData, setSalesData] = useState({});
+  const [loadingSales, setLoadingSales] = useState(false);
+
+  const sheets = useMemo(() => resolveSheets(period), [period]);
+
+  // Stable iframe height with explicit re-broadcast on tab/period change
+  useIframeHeight(activeTab, period, loading, expanded);
+
+  // Data fetch
+  useEffect(() => {
+    if (!sheets) return;
+    let cancel = false;
+    const run = async () => {
+      setLoading(true); setError(null);
+      setData([]); setPrev([]); setExpanded(null);
+      try {
+        await delay(80);
+        const e = await fetchSheet(sheets.expense);
+        await delay(180);
+        const v = await fetchSheet(sheets.visitor);
+        await delay(180);
+        const pe = await fetchSheet(sheets.prevExpense);
+        await delay(180);
+        const pv = await fetchSheet(sheets.prevVisitor);
+        if (cancel) return;
+        setData(mergeData(parseExpense(e), parseVisitor(v)));
+        setPrev(mergeData(parseExpense(pe), parseVisitor(pv)));
+      } catch (err) {
+        if (!cancel) setError('データの読み込みに失敗しました');
+      } finally {
+        if (!cancel) setLoading(false);
+      }
+    };
+    run();
+    return () => { cancel = true; };
+  }, [sheets]);
+
+  // Sales data (on expand)
+  useEffect(() => {
+    if (!expanded) return;
+    if (salesData[expanded]) return;
+    const salesCountries = ['韓国', '中国', '台湾', '香港', '米国', 'タイ', 'ベトナム', 'オーストラリア', 'シンガポール', 'マレーシア', 'インドネシア', 'フィリピン', 'インド', '英国', 'ドイツ', 'フランス', 'イタリア', 'スペイン', 'ロシア', 'カナダ'];
+    if (!salesCountries.includes(expanded)) return;
+
+    let cancel = false;
+    const run = async () => {
+      setLoadingSales(true);
+      try {
+        await delay(100);
+        const rows = await fetchSheet(`営業_${expanded}`);
+        if (cancel) return;
+        if (!rows || rows.length < 5) { setLoadingSales(false); return; }
+        const valid = ['菓子類', '酒類', '生鮮農産物', 'その他食料品・飲料・たばこ', '化粧品・香水', '医薬品', '健康グッズ・トイレタリー', '衣類', '靴・かばん・革製品', '電気製品', '時計・フィルムカメラ', '宝石・貴金属', '民芸品・伝統工芸品', '本・雑誌・ガイドブックなど', '音楽・映像・ゲームなどソフト', 'その他買物代'];
+        const parsed = rows.slice(4).map(r => {
+          const yoyRaw = String(r[3] || '');
+          const yoy = yoyRaw.includes('%')
+            ? parseFloat(yoyRaw.replace('%', '')) / 100
+            : parseNumber(yoyRaw);
+          return {
+            item: r[0] || '',
+            y2023: parseNumber(r[1]),
+            y2024: parseNumber(r[2]),
+            yoy,
+          };
+        }).filter(d => valid.includes(d.item) && (d.y2023 > 0 || d.y2024 > 0));
+        if (parsed.length > 0) {
+          setSalesData(p => ({ ...p, [expanded]: parsed }));
+        }
+      } catch (err) {
+        console.warn(err);
+      } finally {
+        if (!cancel) setLoadingSales(false);
+      }
+    };
+    run();
+    return () => { cancel = true; };
+  }, [expanded, salesData]);
+
+  const kpi = useMemo(() => {
+    const t = data[0];
+    const p = prev.find(d => d.country === '全国籍・地域');
+    if (!t) return null;
+    const shopRatio = t.total ? (t.shopping / t.total) * 100 : 0;
+    const prevShop = p?.total ? (p.shopping / p.total) * 100 : 0;
+    return {
+      total: t.total,
+      totalChg: pctChange(t.total, p?.total),
+      visitors: t.visitors ? t.visitors / 10000 : 0,
+      visitorsChg: p?.visitors ? pctChange(t.visitors, p.visitors) : null,
+      perPerson: t.perPerson ? t.perPerson / 10000 : 0,
+      perPersonChg: p?.perPerson ? pctChange(t.perPerson, p.perPerson) : null,
+      shopRatio,
+      shopRatioChg: prevShop ? { value: shopRatio - prevShop, positive: shopRatio >= prevShop } : null,
+    };
+  }, [data, prev]);
+
+  return (
+    <div style={appStyles.root}>
+      <HeroStrip sheets={sheets} kpi={kpi} loading={loading} />
+      <StickyNav period={period} setPeriod={setPeriod} activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      <main style={appStyles.main}>
+        {error && <div style={appStyles.err}>{error}</div>}
+
+        {loading ? (
+          <div style={appStyles.loader}>
+            <div style={appStyles.spinner} />
+            <div style={appStyles.loaderText}>データ読み込み中...</div>
+          </div>
+        ) : (
+          <>
+            {activeTab === 'overview'    && <OverviewTab data={data} prev={prev} sheets={sheets} />}
+            {activeTab === 'countries'   && <CountriesTab data={data} prev={prev} sheets={sheets}
+                                                           salesData={salesData} loadingSales={loadingSales}
+                                                           expanded={expanded} setExpanded={setExpanded} />}
+            {activeTab === 'composition' && <CompositionTab data={data} prev={prev} sheets={sheets} />}
+            {activeTab === 'analysis'    && <AnalysisTab data={data} prev={prev} sheets={sheets} />}
+          </>
+        )}
+      </main>
+
+      <footer style={appStyles.footer}>
+        <span>出典：観光庁「インバウンド消費動向調査」</span>
+        <span style={{ color: T.faint }}>{sheets?.periodLabel}</span>
+      </footer>
+    </div>
+  );
+}
+
+const appStyles = {
+  root: {
+    minHeight: '100vh',
+    backgroundColor: T.bg,
+    fontFamily: T.sans,
+    color: T.ink,
+    lineHeight: 1.6,
+  },
+  main: {
+    maxWidth: 1200,
+    margin: '0 auto',
+    padding: '32px 24px 48px',
+  },
+  err: {
     padding: 16,
     backgroundColor: '#fef2f2',
-    border: '1px solid #fecaca',
-    borderRadius: 4,
-    color: '#c41e3a',
-    fontSize: 13
+    border: `1px solid #fecaca`,
+    color: T.negative,
+    fontSize: 13,
+    marginBottom: 20,
+    borderRadius: 3,
+  },
+  loader: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 80,
+    gap: 16,
+  },
+  spinner: {
+    width: 28, height: 28,
+    border: `2px solid ${T.line}`,
+    borderTopColor: T.inkDark,
+    borderRadius: '50%',
+    animation: 'spin 0.8s linear infinite',
+  },
+  loaderText: {
+    fontSize: 12,
+    color: T.muted,
+    letterSpacing: '0.1em',
+    textTransform: 'uppercase',
   },
   footer: {
-    maxWidth: 1080,
+    maxWidth: 1200,
     margin: '0 auto',
-    padding: '24px 20px',
+    padding: '24px',
     display: 'flex',
     justifyContent: 'space-between',
     fontSize: 11,
-    color: '#a0aec0',
-    borderTop: '1px solid #e2e8f0'
-  }
+    color: T.muted,
+    borderTop: `1px solid ${T.line}`,
+    letterSpacing: '0.02em',
+  },
 };
 
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
-  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+// Inject global styles (fonts, spinner keyframe, reset, responsive rules)
+const sheet = document.createElement('style');
+sheet.textContent = `
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Serif+JP:wght@500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
   * { box-sizing: border-box; }
-  body { margin: 0; }
+  body { margin: 0; background-color: ${T.bg}; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+  /* Scrollbar (webkit) */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: ${T.bg}; }
+  ::-webkit-scrollbar-thumb { background: ${T.line}; border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: ${T.faint}; }
+
+  /* ===== TABLET (900px and below) ===== */
+  @media (max-width: 900px) {
+    /* Hero: stack left + right */
+    .hero-inner {
+      grid-template-columns: 1fr !important;
+      gap: 24px !important;
+      padding: 32px 20px 28px !important;
+    }
+    /* KPI grid: 2x2 on tablet */
+    .hero-kpi-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+      border-top: 1px solid rgba(255,255,255,0.15);
+      padding-top: 20px;
+    }
+    .hero-kpi-grid > div:nth-child(odd) {
+      border-left: none !important;
+      padding-left: 0 !important;
+    }
+    .hero-kpi-grid > div:nth-child(1),
+    .hero-kpi-grid > div:nth-child(2) {
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 16px;
+    }
+
+    /* Nav: stack */
+    .nav-inner {
+      padding: 12px 16px !important;
+      gap: 12px !important;
+    }
+    .nav-periods {
+      width: 100%;
+      overflow-x: auto;
+    }
+    .nav-tabs {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    /* Overview: stack two-col */
+    .two-col {
+      grid-template-columns: 1fr !important;
+    }
+    /* Matrix: stack chart + list */
+    .matrix-grid {
+      grid-template-columns: 1fr !important;
+    }
+    /* Market share: stack donut + list */
+    .share-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
+  /* ===== MOBILE (600px and below) ===== */
+  @media (max-width: 600px) {
+    .hero-inner {
+      padding: 28px 16px 24px !important;
+    }
+    .hero-kpi-grid {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 14px !important;
+    }
+    .hero-kpi-grid > div {
+      padding: 12px 14px !important;
+      border-left: 1px solid rgba(255,255,255,0.15) !important;
+    }
+    .hero-kpi-grid > div:nth-child(odd) {
+      border-left: none !important;
+      padding-left: 14px !important;
+    }
+
+    /* Country row: compact */
+    .country-row {
+      grid-template-columns: 28px 20px 4px 1fr auto !important;
+      gap: 8px !important;
+      padding: 12px 8px !important;
+    }
+    .country-row > span:nth-last-child(2),
+    .country-row > span:last-child {
+      display: none;
+    }
+
+    /* Rank row: compact */
+    .rank-row {
+      grid-template-columns: 22px minmax(80px, 1fr) auto !important;
+      gap: 10px !important;
+    }
+    .rank-row > div:nth-child(3) {
+      display: none;
+    }
+
+    /* Stack row: label only */
+    .stack-row {
+      grid-template-columns: 100px 1fr 60px !important;
+      gap: 8px !important;
+    }
+  }
+
+  /* Focus / hover */
+  button:focus-visible {
+    outline: 2px solid ${T.accent};
+    outline-offset: 2px;
+  }
+  select:focus-visible {
+    outline: 2px solid ${T.accent};
+    outline-offset: 2px;
+  }
+
+  /* Number tabular */
+  .tabular { font-variant-numeric: tabular-nums; }
 `;
-document.head.appendChild(styleSheet);
+document.head.appendChild(sheet);
