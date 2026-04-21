@@ -1018,6 +1018,8 @@ const ConsumptionDonut = ({ data, label, topN = 15 }) => {
               innerRadius={105}
               outerRadius={195}
               paddingAngle={0.5}
+              startAngle={90}
+              endAngle={-270}
               dataKey="value"
               labelLine={false}
               label={renderLabel}
