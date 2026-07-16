@@ -84,6 +84,7 @@ const resolveSheets = (period) => {
 
   if (p.type === 'quarter') {
     const prevYear = String(parseInt(p.year) - 1);
+    const qMonths = { '1': '1-3月期', '2': '4-6月期', '3': '7-9月期', '4': '10-12月期' };
     return {
       period: p,
       expense: `${p.year}_Q${p.q}_図表3`,
