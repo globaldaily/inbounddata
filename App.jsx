@@ -3495,7 +3495,10 @@ export default function App() {
       </main>
 
       <footer style={appStyles.footer}>
-        <span>出典：観光庁「インバウンド消費動向調査」</span>
+        <a href="https://www.mlit.go.jp/kankocho/tokei_hakusyo/gaikokujinshohidoko.html"
+           target="_blank" rel="noopener noreferrer" style={appStyles.footerLink}>
+          出典：観光庁「インバウンド消費動向調査」
+        </a>
         <div style={appStyles.footerActions}>
           <button
             onClick={downloadCSV}
