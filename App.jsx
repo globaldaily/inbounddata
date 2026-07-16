@@ -71,6 +71,7 @@ const COUNTRY_FLAGS = {
 // PERIOD MODEL
 // ============================================================
 const PERIODS = [
+  { key: '2026Q2', label: "2026 Q2", type: 'quarter', year: '2026', q: '2', badge: '1次速報' },
   { key: '2026Q1', label: "2026 Q1", type: 'quarter', year: '2026', q: '1', badge: '1次速報' },
   { key: '2025',   label: '2025',    type: 'year',    year: '2025',            badge: '年間' },
   { key: '2024',   label: '2024',    type: 'year',    year: '2024',            badge: '年間' },
@@ -89,7 +90,7 @@ const resolveSheets = (period) => {
       visitor: `${p.year}_Q${p.q}_図表4`,
       prevExpense: `${prevYear}_Q${p.q}_図表3`,
       prevVisitor: `${prevYear}_Q${p.q}_図表4`,
-      periodLabel: `${p.year}年 1-3月期`,
+      periodLabel: `${p.year}年 ${qMonths[p.q]}`,
       prevLabel: `${prevYear}年 同期`,
       unit: '億円（四半期）',
     };
@@ -125,6 +126,7 @@ const TREND_DATA = [
   { label: '25/Q3', total: 21384, perPerson: 22.0 },
   { label: '25/Q4', total: 25319, perPerson: 23.4 },
   { label: '26/Q1', total: 23378, perPerson: 22.1 }, // ← 2026 Q1 (1次速報)
+  { label: '26/Q2', total: 25096, perPerson: 24.4 }, // ← 2026 Q2 (1次速報)
 ];
 
 // ============================================================
@@ -1343,7 +1345,7 @@ const OverviewTab = ({ data, prev, sheets }) => {
           title="四半期別 推移"
           subtitle="2023年 1-3月期 〜 最新四半期"
         />
-        <TrendChart data={TREND_DATA} highlightLabel={sheets?.period.type === 'quarter' ? '26/Q1' : null} />
+        <TrendChart data={TREND_DATA} highlightLabel={sheets?.period.type === 'quarter' ? `${String(sheets.period.year).slice(2)}/Q${sheets.period.q}` : null} />
       </Card>
 
       {/* COUNTRY BREAKDOWN PIE - current vs prev year */}
@@ -3302,7 +3304,7 @@ const cardStyles = {
 };
 
 export default function App() {
-  const [period, setPeriod] = useState('2026Q1');
+  const [period, setPeriod] = useState('2026Q2');
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
