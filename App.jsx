@@ -70,7 +70,9 @@ const COUNTRY_FLAGS = {
 // ============================================================
 // PERIOD MODEL
 // ============================================================
-const PERIODS = [
+// ※ 期間・推移・公表日はシート「消費_meta」から読む（無い・読めない時は下の既定値）。
+//   四半期の更新は「データタブ＋消費_meta」の貼り付けだけで済み、App.jsx の変更は不要。
+let PERIODS = [
   { key: '2026Q2', label: "2026 Q2", type: 'quarter', year: '2026', q: '2', badge: '2次速報' },
   { key: '2026Q1', label: "2026 Q1", type: 'quarter', year: '2026', q: '1', badge: '2次速報' },
   { key: '2025',   label: '2025',    type: 'year',    year: '2025',            badge: '年間' },
@@ -113,7 +115,7 @@ const resolveSheets = (period) => {
 // TREND DATA (quarterly, hardcoded)
 // ※ 新しい四半期発表時はここに1行追加
 // ============================================================
-const TREND_DATA = [
+let TREND_DATA = [
   { label: '23/Q1', total: 10103, perPerson: 21.1 },
   { label: '23/Q2', total: 12319, perPerson: 20.9 },
   { label: '23/Q3', total: 13801, perPerson: 20.9 },
@@ -129,6 +131,68 @@ const TREND_DATA = [
   { label: '26/Q1', total: 23373, perPerson: 22.1 }, // ← 2026 Q1 (2次速報・6/30公表)
   { label: '26/Q2', total: 25125, perPerson: 24.5 }, // ← 2026 Q2 (2次速報・9/30公表)
 ];
+
+// 観光庁「統計の公表予定」より（インバウンド消費動向調査）。target＝期間キー（PERIODS の key と同じ）
+let SCHEDULE = [
+  { target: '2025',   stage: '1次速報', date: '2026-01-21' },
+  { target: '2025',   stage: '確報',    date: '2026-03-31' },
+  { target: '2026Q1', stage: '1次速報', date: '2026-04-15' },
+  { target: '2026Q1', stage: '2次速報', date: '2026-06-30' },
+  { target: '2026Q2', stage: '1次速報', date: '2026-07-15' },
+  { target: '2026Q2', stage: '2次速報', date: '2026-09-30' },
+  { target: '2026Q3', stage: '1次速報', date: '2026-10-21' },
+  { target: '2026Q3', stage: '2次速報', date: '2026-12-24' },
+  { target: '2026Q4', stage: '1次速報', date: '2027-01-20' },
+  { target: '2026',   stage: '1次速報', date: '2027-01-20' },
+  { target: '2026Q4', stage: '2次速報', date: '2027-03-31' },
+  { target: '2026',   stage: '確報',    date: '2027-03-31' },
+];
+
+// 「消費_meta」タブ：A列が種類。1行目は見出し
+//   period   | key | label | type(quarter/year) | year | q | 区分(1次速報/2次速報/確報/年間)
+//   trend    | label | total(億円) | 1人当たり(万円)
+//   schedule | target | 区分 | 公表日(YYYY-MM-DD)
+const applyMeta = (rows) => {
+  if (!rows?.length) return false;
+  const P = [], TR = [], SC = [];
+  rows.forEach(r => {
+    const k = String(r[0] || '').trim();
+    const c = (i) => String(r[i] ?? '').trim();
+    if (k === 'period' && c(1)) P.push({ key: c(1), label: c(2), type: c(3), year: c(4), q: c(5) || undefined, badge: c(6) });
+    if (k === 'trend' && c(1)) TR.push({ label: c(1), total: parseNumber(r[2]), perPerson: parseFloat(c(3)) });
+    if (k === 'schedule' && c(1)) {
+      const d = c(3).match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/);   // 2026-10-21 / 2026/10/21 どちらでも
+      if (d) SC.push({ target: c(1), stage: c(2), date: `${d[1]}-${d[2].padStart(2, '0')}-${d[3].padStart(2, '0')}` });
+    }
+  });
+  if (P.length) PERIODS = P;
+  if (TR.length) TREND_DATA = TR;
+  if (SC.length) SCHEDULE = SC;
+  return P.length > 0;
+};
+
+// 公表日・次回・最新かどうか（今日の日付で自動判定）
+const todayJST = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+const jaDate = (d, withYear = true) => {
+  const [y, m, dd] = d.split('-').map(Number);
+  return withYear ? `${y}年${m}月${dd}日` : `${m}月${dd}日`;
+};
+const targetLabel = (t) => {
+  const m = t.match(/^(\d{4})Q(\d)$/);
+  const qm = { '1': '1-3月期', '2': '4-6月期', '3': '7-9月期', '4': '10-12月期' };
+  return m ? `${m[1]}年${qm[m[2]]}` : `${t}年 年間`;
+};
+const releaseInfo = (period) => {
+  const today = todayJST();
+  const pub = SCHEDULE.find(x => x.target === period.key && x.stage === period.badge);
+  const next = SCHEDULE.filter(x => x.date > today).sort((a, b) => a.date.localeCompare(b.date))[0] || null;
+  // 今日までに公表された最新の回が、すべてダッシュボードに入っていれば「最新」
+  const done = SCHEDULE.filter(x => x.date <= today);
+  const lastDate = done.reduce((m, x) => (x.date > m ? x.date : m), '');
+  const isLatest = !!pub && pub.date === lastDate &&
+    done.filter(x => x.date === lastDate).every(x => PERIODS.some(p => p.key === x.target && p.badge === x.stage));
+  return { pub, next, isLatest };
+};
 
 // ============================================================
 // UTILS
@@ -435,17 +499,31 @@ const HeroStrip = ({ sheets, kpi, loading }) => {
             <span style={heroStyles.periodMain}>{periodLabel}</span>
             <span style={heroStyles.periodBadge}>{period.badge}</span>
           </div>
-          <div style={heroStyles.sub}>vs {prevLabel}　|　出典：観光庁</div>
+          <div style={heroStyles.sub}>vs {prevLabel}</div>
+          <ReleaseLine period={period} />
         </div>
 
         {/* RIGHT: 4 KPI cells */}
         <div style={heroStyles.kpiGrid} className="hero-kpi-grid">
-          <KpiCell label="総消費額" value={loading || !kpi ? '—' : formatOku(kpi.total, 0)} unit="億円" change={kpi?.totalChg} loading={loading} />
+          <KpiCell label="総消費額" value={loading || !kpi ? '—' : formatOku(kpi.total, 0)} unit={kpi?.total >= 10000 ? '円' : '億円'} change={kpi?.totalChg} loading={loading} />
           <KpiCell label="訪日客数" value={loading || !kpi ? '—' : formatNum(kpi.visitors, 1)} unit="万人" change={kpi?.visitorsChg} loading={loading} />
           <KpiCell label="客単価" value={loading || !kpi ? '—' : formatNum(kpi.perPerson, 1)} unit="万円" change={kpi?.perPersonChg} loading={loading} />
           <KpiCell label="買物比率" value={loading || !kpi ? '—' : formatNum(kpi.shopRatio, 1)} unit="%" change={kpi?.shopRatioChg} loading={loading} />
         </div>
       </div>
+    </div>
+  );
+};
+
+const ReleaseLine = ({ period }) => {
+  const { pub, next, isLatest } = releaseInfo(period);
+  return (
+    <div style={heroStyles.release}>
+      <div>出典：観光庁「インバウンド消費動向調査」{period.badge && period.badge !== '年間' ? period.badge : ''}
+        {pub && <>（{jaDate(pub.date)}公表）</>}
+        {isLatest && <span style={heroStyles.latest}>公表済みの最新</span>}
+      </div>
+      {next && <div>次回更新：{targetLabel(next.target)} {next.stage}（{jaDate(next.date, false)}予定）</div>}
     </div>
   );
 };
@@ -514,6 +592,23 @@ const heroStyles = {
     opacity: 0.55,
     marginTop: 10,
     letterSpacing: '0.02em',
+  },
+  release: {
+    fontSize: 11,
+    lineHeight: 1.7,
+    opacity: 0.7,
+    marginTop: 6,
+    letterSpacing: '0.02em',
+  },
+  latest: {
+    display: 'inline-block',
+    marginLeft: 6,
+    padding: '0 6px',
+    fontSize: 10,
+    fontWeight: 700,
+    border: '1px solid rgba(255,255,255,0.5)',
+    borderRadius: 2,
+    opacity: 1,
   },
   kpiGrid: {
     display: 'grid',
@@ -3305,7 +3400,8 @@ const cardStyles = {
 };
 
 export default function App() {
-  const [period, setPeriod] = useState('2026Q2');
+  const [period, setPeriod] = useState(PERIODS[0].key);
+  const [metaVer, setMetaVer] = useState(0);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -3315,7 +3411,17 @@ export default function App() {
   const [salesData, setSalesData] = useState({});
   const [loadingSales, setLoadingSales] = useState(false);
 
-  const sheets = useMemo(() => resolveSheets(period), [period]);
+  // 消費_meta を最初に読む（失敗しても既定値で動く）
+  useEffect(() => {
+    let cancel = false;
+    fetchSheet('消費_meta').then(rows => {
+      if (cancel || !applyMeta(rows)) return;
+      setPeriod(PERIODS[0].key);
+    }).catch(() => {}).finally(() => { if (!cancel) setMetaVer(v => v + 1); });
+    return () => { cancel = true; };
+  }, []);
+
+  const sheets = useMemo(() => resolveSheets(period), [period, metaVer]);
 
   // URL-based card mode (for Instagram/SNS share screenshot)
   const cardMode = useMemo(() => {
@@ -3369,7 +3475,7 @@ export default function App() {
 
   // Data fetch
   useEffect(() => {
-    if (!sheets) return;
+    if (!sheets || !metaVer) return;   // 消費_meta を読み終えてから
     let cancel = false;
     const run = async () => {
       setLoading(true); setError(null);
