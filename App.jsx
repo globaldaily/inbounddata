@@ -434,7 +434,7 @@ const HBar = ({ value, max, color = T.inkDark, height = 4 }) => {
 };
 
 // Section header (editorial)
-const SectionTitle = ({ title, subtitle, kicker, aside }) => (
+const SectionTitle = ({ title, subtitle, unit, source = '観光庁「インバウンド消費動向調査」', sub, aside }) => (
   <div style={{
     display: 'flex',
     justifyContent: 'space-between',
@@ -446,14 +446,20 @@ const SectionTitle = ({ title, subtitle, kicker, aside }) => (
     flexWrap: 'wrap',
   }}>
     <div>
-      {kicker && <div style={{
+      {!sub && <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '2px 10px',
         fontSize: 11,
-        fontWeight: 600,
-        color: T.accent,
-        textTransform: 'uppercase',
-        letterSpacing: '0.1em',
+        color: T.faint,
+        letterSpacing: '0.02em',
         marginBottom: 6,
-      }}>{kicker}</div>}
+      }}>
+        <span className="fig-num" style={{ fontWeight: 700, color: T.muted, fontFamily: T.mono, paddingRight: 10, borderRight: `1px solid ${T.line}` }} />
+        {unit && <span>単位：{unit}</span>}
+        {source && <span>出典：{source}</span>}
+      </div>}
       <h2 style={{
         fontFamily: T.sans,
         fontSize: 22,
@@ -880,7 +886,7 @@ const HighlightsSection = ({ data, prev, sheets }) => {
   return (
     <Card>
       <SectionTitle
-        kicker="Highlights"
+        unit="億円・%"
         title="今期のハイライト"
         subtitle={`${sheets?.periodLabel} · 前年同期比較の主要指標`}
       />
@@ -1349,7 +1355,7 @@ const ConsumptionPieSection = ({ data, prev, sheets }) => {
   return (
     <Card>
       <SectionTitle
-        kicker="Country Breakdown"
+        unit="億円"
         title="国別 消費額構成"
         subtitle={`${periodLabel} 対 ${prevLabel} 同期比較`}
         aside={
@@ -1437,7 +1443,7 @@ const OverviewTab = ({ data, prev, sheets }) => {
       {/* TREND CHART - Full width */}
       <Card>
         <SectionTitle
-          kicker="Quarterly Trend"
+          unit="億円・万円"
           title="四半期別 推移"
           subtitle="2023年 1-3月期 〜 最新四半期"
         />
@@ -1451,7 +1457,7 @@ const OverviewTab = ({ data, prev, sheets }) => {
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 24 }} className="two-col">
         <Card>
           <SectionTitle
-            kicker="Ranking"
+            unit="億円"
             title="国別 TOP 10"
             subtitle={`${sheets?.periodLabel} 消費額上位`}
           />
@@ -1511,7 +1517,7 @@ const OverviewTab = ({ data, prev, sheets }) => {
 
         <Card>
           <SectionTitle
-            kicker="By Region"
+            unit="%"
             title="地域構成"
             subtitle="消費額シェア"
           />
@@ -1549,11 +1555,11 @@ const OverviewTab = ({ data, prev, sheets }) => {
       {/* MOVERS - gainers + losers */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }} className="two-col">
         <Card style={{ borderLeft: `3px solid ${T.positive}` }}>
-          <SectionTitle kicker="Gainers" title="伸びた市場" />
+          <SectionTitle sub title="伸びた市場" />
           <MoverList items={movers.gainers} />
         </Card>
         <Card style={{ borderLeft: `3px solid ${T.negative}` }}>
-          <SectionTitle kicker="Decliners" title="減った市場" />
+          <SectionTitle sub title="減った市場" />
           <MoverList items={movers.losers} />
         </Card>
       </div>
@@ -1907,7 +1913,7 @@ const CountriesTab = ({ data, prev, sheets, salesData, loadingSales, expanded, s
   return (
     <Card>
       <SectionTitle
-        kicker="Countries & Regions"
+        unit="億円・円"
         title="国・地域別 詳細"
         subtitle={`${sheets?.periodLabel} 消費額・費目別内訳`}
         aside={
@@ -2311,6 +2317,124 @@ const ctryStyles = {
 // ============================================================
 // TAB 3: 構成 (Composition) - Expense breakdown focus
 // ============================================================
+// ============================================================
+// 費目別 購入者単価（最新四半期のみ・シート「消費_単価」）
+//   全21品目×13市場・前年比の全表は市場レポート（PDF）資料編A4・A5へ誘導
+// ============================================================
+const UNIT_CTA = 'https://www.gldaily.com/download/?doc=market&from=dash_spend&via=unit_block';
+const UNIT_ALL = '全国籍・地域';
+
+const UnitPriceBlock = () => {
+  const [tab, setTab] = useState(null);
+  const [market, setMarket] = useState(UNIT_ALL);
+
+  useEffect(() => {
+    let cancel = false;
+    fetchSheet('消費_単価').then(rows => {
+      if (cancel || !rows?.length) return;
+      const meta = rows[0] || [];
+      const get = (k, d) => { const i = meta.indexOf(k); return i >= 0 ? meta[i + 1] : d; };
+      const list = rows.slice(2).filter(r => r[0] && r[1]).map(r => ({
+        market: String(r[0]), item: String(r[1]), main: r[2] === '費目',
+        rate: parseFloat(r[3]), unit: parseNumber(r[4]), n: parseNumber(r[5]),
+        prev: parseNumber(r[6]), prevN: parseNumber(r[7]),
+      }));
+      setTab({
+        period: get('period', ''), prevLabel: get('prev', ''),
+        minN: Number(get('minN', 30)), yoyMinN: Number(get('yoyMinN', 100)), list,
+      });
+    }).catch(() => {});
+    return () => { cancel = true; };
+  }, []);
+
+  if (!tab) return null;
+  const markets = [...new Set(tab.list.map(r => r.market))];
+  const base = Object.fromEntries(tab.list.filter(r => r.market === UNIT_ALL).map(r => [r.item, r.unit]));
+  const rows = tab.list.filter(r => r.market === market);
+  const ok = (r) => r.n >= tab.minN && r.unit > 0;
+  const mains = rows.filter(r => r.main);
+  const shops = rows.filter(r => !r.main && ok(r)).sort((a, b) => b.rate - a.rate);
+  const shopTop = shops.slice(0, 8);
+  const hidden = rows.filter(r => !r.main).length - shopTop.length;
+
+  const Row = ({ r }) => {
+    const valid = ok(r);
+    const idx = market !== UNIT_ALL && valid && base[r.item] ? Math.round(r.unit / base[r.item] * 100) : null;
+    const yoy = valid && r.n >= tab.yoyMinN && r.prevN >= tab.yoyMinN && r.prev > 0 ? (r.unit / r.prev - 1) * 100 : null;
+    return (
+      <div className="unit-row" style={unitStyles.row}>
+        <div style={unitStyles.item}>{r.item.replace('（計）', '')}</div>
+        <div style={unitStyles.rateCell} title={`購入率 ${isNaN(r.rate) ? '—' : r.rate.toFixed(1) + '%'}`}>
+          <div className="unit-track" style={unitStyles.rateTrack}><div style={{ ...unitStyles.rateBar, width: `${Math.min(100, r.rate || 0)}%` }} /></div>
+          <span style={unitStyles.rateNum}>{isNaN(r.rate) ? '—' : `${r.rate.toFixed(0)}%`}</span>
+        </div>
+        <div style={unitStyles.unit}>
+          {valid ? <>{Math.round(r.unit).toLocaleString('ja-JP')}<span style={unitStyles.yen}>円</span></> : <span style={{ color: T.faint }}>—</span>}
+        </div>
+        <div style={unitStyles.sub}>
+          {idx != null && <span style={{ color: idx >= 120 || idx <= 80 ? T.ink : T.faint, fontWeight: idx >= 120 || idx <= 80 ? 700 : 400 }}>全体比 {idx}</span>}
+          {yoy != null && <span style={{ color: T.muted }}>前年 {yoy >= 0 ? '+' : ''}{yoy.toFixed(0)}%</span>}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <Card>
+      <SectionTitle
+        unit="円・%"
+        title="費目別 購入者単価"
+        subtitle={`${tab.period}・実際に買った人1人あたりの支出と、買った人の割合（購入率）`}
+        aside={
+          <select value={market} onChange={e => setMarket(e.target.value)} style={unitStyles.select} aria-label="国・地域">
+            {markets.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        }
+      />
+      <div className="unit-grid" style={unitStyles.grid}>
+        <div>
+          <div style={unitStyles.groupTitle}>旅行費目</div>
+          <div className="unit-row" style={unitStyles.head}><span>費目</span><span>購入率</span><span style={{ textAlign: 'right' }}>購入者単価</span><span /></div>
+          {mains.map(r => <Row key={r.item} r={r} />)}
+        </div>
+        <div>
+          <div style={unitStyles.groupTitle}>買物の内訳（購入率の高い順）</div>
+          <div className="unit-row" style={unitStyles.head}><span>品目</span><span>購入率</span><span style={{ textAlign: 'right' }}>購入者単価</span><span /></div>
+          {shopTop.map(r => <Row key={r.item} r={r} />)}
+        </div>
+      </div>
+      <div style={unitStyles.foot}>
+        <p style={unitStyles.note}>
+          出典：観光庁「インバウンド消費動向調査」集計表（表2-1）{tab.period}をもとに当社作成。期間ボタンに関係なく最新四半期を表示。
+          全体比＝全国籍・地域を100とした指数。前年比は両年とも購入者{tab.yoyMinN}人以上の項目のみ（{tab.prevLabel}比）。購入者{tab.minN}人未満は「—」。
+        </p>
+        <a href={UNIT_CTA} target="_top" rel="noopener" style={unitStyles.cta}>
+          {hidden > 0 ? `ほか${hidden}品目と、` : ''}13市場の一覧比較・前年比は市場レポート（無料PDF）で →
+        </a>
+      </div>
+    </Card>
+  );
+};
+
+const unitStyles = {
+  select: { height: 36, padding: '0 12px', fontSize: 14, fontFamily: T.sans, color: T.ink, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 4, cursor: 'pointer' },
+  grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 },
+  groupTitle: { fontSize: 12, fontWeight: 700, color: T.muted, letterSpacing: '0.04em', marginBottom: 8 },
+  head: { display: 'grid', gridTemplateColumns: '1.3fr 1.1fr 1fr 0.9fr', gap: 10, fontSize: 10, color: T.faint, padding: '0 0 6px', borderBottom: `1px solid ${T.line}` },
+  row: { display: 'grid', gridTemplateColumns: '1.3fr 1.1fr 1fr 0.9fr', gap: 10, alignItems: 'center', padding: '9px 0', borderBottom: `1px solid ${T.lineSoft}` },
+  item: { fontSize: 13, color: T.ink, lineHeight: 1.35 },
+  rateCell: { display: 'flex', alignItems: 'center', gap: 6 },
+  rateTrack: { flex: 1, height: 6, background: T.lineSoft, borderRadius: 3, overflow: 'hidden' },
+  rateBar: { height: '100%', background: T.muted },
+  rateNum: { width: 32, fontSize: 11, color: T.muted, textAlign: 'right', fontFamily: T.mono },
+  unit: { fontSize: 14, fontWeight: 700, color: T.inkDark, textAlign: 'right', fontFamily: T.mono, fontVariantNumeric: 'tabular-nums' },
+  yen: { fontSize: 10, fontWeight: 400, color: T.muted, marginLeft: 2 },
+  sub: { display: 'flex', flexDirection: 'column', gap: 2, fontSize: 10, fontFamily: T.mono, textAlign: 'right' },
+  foot: { marginTop: 20, paddingTop: 14, borderTop: `1px solid ${T.line}`, display: 'flex', flexDirection: 'column', gap: 12 },
+  note: { fontSize: 11, color: T.muted, lineHeight: 1.7, margin: 0 },
+  cta: { alignSelf: 'flex-start', display: 'inline-block', padding: '10px 16px', fontSize: 13, fontWeight: 700, color: '#fff', background: T.inkDark, borderRadius: 4, textDecoration: 'none' },
+};
+
 const CompositionTab = ({ data, prev, sheets }) => {
   const totalRow = data?.[0];
   const prevTotal = prev?.[0];
@@ -2362,7 +2486,7 @@ const CompositionTab = ({ data, prev, sheets }) => {
       {/* Overall composition */}
       <Card>
         <SectionTitle
-          kicker="Overall Composition"
+          unit="%・億円"
           title="全体 費目構成"
           subtitle={`${sheets?.periodLabel} 全国籍・地域`}
         />
@@ -2427,7 +2551,7 @@ const CompositionTab = ({ data, prev, sheets }) => {
       {/* Country comparison */}
       <Card>
         <SectionTitle
-          kicker="By Country"
+          unit="%"
           title="国別 費目比率"
           subtitle="上位12市場の費目構成を比較"
         />
@@ -2468,6 +2592,8 @@ const CompositionTab = ({ data, prev, sheets }) => {
           ))}
         </div>
       </Card>
+
+      <UnitPriceBlock />
     </div>
   );
 };
@@ -2644,7 +2770,7 @@ const MatrixSection = ({ data, prev, sheets }) => {
   return (
     <Card>
       <SectionTitle
-        kicker="Positioning Matrix"
+        unit="%・万円"
         title="成長率 × 客単価"
         subtitle="バブルサイズ = 消費額規模"
       />
@@ -2766,7 +2892,7 @@ const MarketShareSection = ({ data, sheets }) => {
   return (
     <Card>
       <SectionTitle
-        kicker="Market Share"
+        unit="%"
         title="市場シェア"
         subtitle={`${sheets?.periodLabel} 国別消費額の構成比`}
       />
@@ -2884,7 +3010,7 @@ const GrowthSection = ({ data, prev, sheets }) => {
   return (
     <Card>
       <SectionTitle
-        kicker="Year-on-Year"
+        unit="億円・%"
         title="費目別 増減"
         subtitle={`${sheets?.prevLabel} → ${sheets?.periodLabel}`}
         aside={
@@ -3015,7 +3141,7 @@ const CompareSection = ({ data, prev, sheets }) => {
   return (
     <Card>
       <SectionTitle
-        kicker="Side-by-Side"
+        unit="億円・円"
         title="国別比較"
         subtitle="最大3市場を選択して詳細比較"
       />
@@ -3589,14 +3715,14 @@ export default function App() {
             <div style={appStyles.loaderText}>データ読み込み中...</div>
           </div>
         ) : (
-          <>
+          <div className="fig-scope">
             {activeTab === 'overview'    && <OverviewTab data={data} prev={prev} sheets={sheets} />}
             {activeTab === 'countries'   && <CountriesTab data={data} prev={prev} sheets={sheets}
                                                            salesData={salesData} loadingSales={loadingSales}
                                                            expanded={expanded} setExpanded={setExpanded} />}
             {activeTab === 'composition' && <CompositionTab data={data} prev={prev} sheets={sheets} />}
             {activeTab === 'analysis'    && <AnalysisTab data={data} prev={prev} sheets={sheets} />}
-          </>
+          </div>
         )}
       </main>
 
@@ -3723,8 +3849,13 @@ sheet.textContent = `
   ::-webkit-scrollbar-thumb { background: ${T.line}; border-radius: 5px; }
   ::-webkit-scrollbar-thumb:hover { background: ${T.faint}; }
 
+  /* 図表番号（タブごとに 図1, 図2…） */
+  .fig-scope { counter-reset: fig; }
+  .fig-num::before { counter-increment: fig; content: "図" counter(fig); }
+
   /* ===== TABLET (900px and below) ===== */
   @media (max-width: 900px) {
+    .unit-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
     /* Hero: stack left + right */
     .hero-inner {
       grid-template-columns: 1fr !important;
@@ -3787,6 +3918,8 @@ sheet.textContent = `
 
   /* ===== MOBILE (600px and below) ===== */
   @media (max-width: 600px) {
+    .unit-row { grid-template-columns: 1.5fr 0.55fr 1fr 0.85fr !important; gap: 6px !important; }
+    .unit-track { display: none !important; }
     .hero-inner {
       padding: 28px 16px 24px !important;
     }
