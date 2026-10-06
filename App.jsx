@@ -126,8 +126,8 @@ const TREND_DATA = [
   { label: '25/Q2', total: 25043, perPerson: 23.7 },
   { label: '25/Q3', total: 21384, perPerson: 22.0 },
   { label: '25/Q4', total: 25319, perPerson: 23.4 },
-  { label: '26/Q1', total: 23378, perPerson: 22.1 }, // ← 2026 Q1 (1次速報)
-  { label: '26/Q2', total: 25096, perPerson: 24.4 }, // ← 2026 Q2 (1次速報)
+  { label: '26/Q1', total: 23373, perPerson: 22.1 }, // ← 2026 Q1 (2次速報・6/30公表)
+  { label: '26/Q2', total: 25125, perPerson: 24.5 }, // ← 2026 Q2 (2次速報・9/30公表)
 ];
 
 // ============================================================
@@ -458,7 +458,7 @@ const KpiCell = ({ label, value, unit, change, loading }) => (
     </div>
     <div style={heroStyles.kpiDelta}>
       {change && <Delta change={change} size="sm" />}
-      <span style={heroStyles.kpiDeltaLabel}>前期比</span>
+      <span style={heroStyles.kpiDeltaLabel}>前年同期比</span>
     </div>
   </div>
 );
