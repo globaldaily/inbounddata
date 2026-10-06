@@ -71,8 +71,8 @@ const COUNTRY_FLAGS = {
 // PERIOD MODEL
 // ============================================================
 const PERIODS = [
-  { key: '2026Q2', label: "2026 Q2", type: 'quarter', year: '2026', q: '2', badge: '1次速報' },
-  { key: '2026Q1', label: "2026 Q1", type: 'quarter', year: '2026', q: '1', badge: '1次速報' },
+  { key: '2026Q2', label: "2026 Q2", type: 'quarter', year: '2026', q: '2', badge: '2次速報' },
+  { key: '2026Q1', label: "2026 Q1", type: 'quarter', year: '2026', q: '1', badge: '2次速報' },
   { key: '2025',   label: '2025',    type: 'year',    year: '2025',            badge: '年間' },
   { key: '2024',   label: '2024',    type: 'year',    year: '2024',            badge: '年間' },
   { key: '2023',   label: '2023',    type: 'year',    year: '2023',            badge: '年間' },
