@@ -655,6 +655,7 @@ const heroStyles = {
 const StickyNav = ({ period, setPeriod, activeTab, setActiveTab }) => {
   const tabs = [
     { id: 'overview',    label: '概観' },
+    { id: 'item',        label: '品目別', isNew: true },
     { id: 'countries',   label: '国別' },
     { id: 'composition', label: '構成' },
     { id: 'analysis',    label: '分析' },
@@ -691,9 +692,10 @@ const StickyNav = ({ period, setPeriod, activeTab, setActiveTab }) => {
               onClick={() => setActiveTab(t.id)}
               style={{
                 ...navStyles.tab,
+                ...(t.isNew ? navStyles.tabNew : {}),
                 ...(activeTab === t.id ? navStyles.tabActive : {}),
               }}
-            >{t.label}</button>
+            >{t.label}{t.isNew && <span style={navStyles.newBadge}>NEW</span>}</button>
           ))}
         </div>
       </div>
@@ -768,7 +770,10 @@ const navStyles = {
     color: T.muted,
     backgroundColor: 'transparent',
     border: 'none',
-    borderBottom: '2px solid transparent',
+    // 省略形（borderBottom）と borderBottomColor を混ぜると、タブを切り替えたあと前のタブに下線が残るので個別に指定
+    borderBottomWidth: 2,
+    borderBottomStyle: 'solid',
+    borderBottomColor: 'transparent',
     cursor: 'pointer',
     transition: 'all 0.15s',
     fontFamily: T.sans,
@@ -777,6 +782,25 @@ const navStyles = {
     color: T.inkDark,
     fontWeight: 700,
     borderBottomColor: T.accent,
+  },
+  // 新しく足したタブ（品目別）。気づいてもらうため、文字を濃く・NEWを付ける。翌々月ごろに isNew を外す
+  tabNew: {
+    color: T.inkDark,
+    fontWeight: 700,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    whiteSpace: 'nowrap',
+  },
+  newBadge: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: '#fff',
+    backgroundColor: T.accent,
+    padding: '2px 5px',
+    borderRadius: 2,
+    letterSpacing: '0.06em',
+    lineHeight: 1.2,
   },
 };
 
@@ -932,39 +956,17 @@ const HighlightsSection = ({ data, prev, sheets }) => {
   );
 };
 
-// Country color palette — each country gets a distinct, recognizable hue
-// Tones are muted but saturated enough to read in small segments
+// 国・地域の色 — 市場レポート（PDF・編集用PPT）・Webの宿泊マップ・訪日外客数ダッシュボードと共通。
+// 変えるときは全部そろえて変える（inbound-report-kit の CC と同じ値）
 const COUNTRY_COLORS = {
-  // Top-tier markets (strongest presence)
-  '中国':   '#991b1b',   // deep crimson
-  '韓国':   '#1e3a8a',   // navy
-  '台湾':   '#c2410c',   // burnt orange
-  '米国':   '#0c4a6e',   // dark teal-blue
-  '香港':   '#15803d',   // jade green
-  // Asia-Pacific (warm mid-range)
-  'オーストラリア': '#0891b2', // cyan
-  'タイ':           '#a16207', // golden brown
-  'シンガポール':   '#65a30d', // olive green
-  'マレーシア':     '#be185d', // magenta
-  'インドネシア':   '#7c2d12', // umber
-  'フィリピン':     '#db2777', // rose
-  'ベトナム':       '#166534', // forest green
-  'インド':         '#ca8a04', // mustard yellow
-  // Europe (cool tones, distinct hues)
-  '英国':     '#312e81', // indigo
-  'ドイツ':   '#374151', // charcoal
-  'フランス': '#6d28d9', // purple
-  'イタリア': '#86198f', // plum
-  'スペイン': '#b45309', // terracotta
-  'ロシア':   '#4c1d95', // deep violet
-  // Americas / other
-  'カナダ':   '#0284c7', // sky blue
-  'メキシコ': '#9a3412', // dark coral
-  '中東':     '#854d0e', // bronze
-  '北欧':     '#475569', // slate gray
-  'その他':   '#a8a29e', // neutral stone
+  '韓国': '#2f6db5', '中国': '#c0463f', '台湾': '#2f8f5b', '香港': '#8a4fb0', '米国': '#1f7f8f', 'タイ': '#d27a1f',
+  'マレーシア': '#a88a12', 'インドネシア': '#a0522d', 'ベトナム': '#b8467e', 'シンガポール': '#5b8c3a', 'フィリピン': '#6d5a8e',
+  '豪州': '#3f6f9e', 'カナダ': '#9b6b43', '英国': '#4a5a7a', 'フランス': '#7a8fb0', 'ドイツ': '#5a5a5a', 'イタリア': '#4f8a7a', 'スペイン': '#b07a3a',
+  'インド': '#d98c5f', 'ロシア': '#5e3c6d', 'メキシコ': '#8a9a2f', '中東地域': '#9a7b4f', '北欧地域': '#6c8a99',
+  'その他': '#c9d0db',
 };
-const colorOf = (c) => COUNTRY_COLORS[c] || '#a8a29e';
+const COUNTRY_ALIAS = { 'オーストラリア': '豪州', '中東': '中東地域', '北欧': '北欧地域' };
+const colorOf = (c) => COUNTRY_COLORS[COUNTRY_ALIAS[c] || c] || '#9aa3b2';
 
 // Custom tooltip for hover over pie segments
 const PieHoverTooltip = ({ active, payload, total }) => {
@@ -1396,7 +1398,7 @@ const ConsumptionPieSection = ({ data, prev, sheets }) => {
   );
 };
 
-const OverviewTab = ({ data, prev, sheets }) => {
+const OverviewTab = ({ data, prev, sheets, onOpenItem }) => {
   const top10 = useMemo(() => {
     if (!data?.length) return [];
     return data
@@ -1440,6 +1442,9 @@ const OverviewTab = ({ data, prev, sheets }) => {
       {/* HIGHLIGHTS - editorial summary at top */}
       <HighlightsSection data={data} prev={prev} sheets={sheets} />
 
+      {/* 品目別 推計消費額のカード（押すと「品目別」タブへ） */}
+      <ItemTeaser onOpen={onOpenItem} />
+
       {/* TREND CHART - Full width */}
       <Card>
         <SectionTitle
@@ -1462,37 +1467,6 @@ const OverviewTab = ({ data, prev, sheets }) => {
             subtitle={`${sheets?.periodLabel} 消費額上位`}
           />
           {/* Region color legend — color is grouping only, not value judgement */}
-          <div style={{
-            display: 'flex',
-            gap: 14,
-            flexWrap: 'wrap',
-            paddingBottom: 12,
-            marginBottom: 12,
-            borderBottom: `1px solid ${T.lineSoft}`,
-          }}>
-            <span style={{
-              fontSize: 10,
-              fontWeight: 600,
-              color: T.muted,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              marginRight: 4,
-            }}>
-              地域
-            </span>
-            {Object.entries(T.region).map(([r, c]) => (
-              <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{
-                  width: 14,
-                  height: 6,
-                  background: c,
-                  borderRadius: 1,
-                  display: 'inline-block',
-                }} />
-                <span style={{ fontSize: 11, color: T.ink, fontWeight: 500 }}>{r}</span>
-              </div>
-            ))}
-          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {top10.map((c, i) => {
               const region = getRegion(c.country);
@@ -1504,7 +1478,7 @@ const OverviewTab = ({ data, prev, sheets }) => {
                     <span>{c.country}</span>
                   </div>
                   <div style={ovStyles.rankBarWrap}>
-                    <HBar value={c.total} max={maxTotal} color={T.region[region]} height={6} />
+                    <HBar value={c.total} max={maxTotal} color={colorOf(c.country)} height={6} />
                   </div>
                   <div style={ovStyles.rankValue}>
                     <BigNum value={formatOku(c.total)} unit="億" size="md" />
@@ -2037,7 +2011,7 @@ const CountryRow = ({ country, rank, prev, expanded, onToggle, salesData, loadin
         </span>
         <span style={ctryStyles.rowFlag}>{COUNTRY_FLAGS[country.country]}</span>
         <span style={{
-          width: 2, height: 18, backgroundColor: T.region[region], marginRight: 6,
+          width: 3, height: 18, backgroundColor: colorOf(country.country), marginRight: 6,
         }} />
         <span style={ctryStyles.rowName}>{country.country}</span>
         <span style={ctryStyles.rowValue}>
@@ -2460,20 +2434,87 @@ const unitStyles = {
 const ITEM_CTA = 'https://www.gldaily.com/download/?from=inbound_statistics&doc=market&via=spend_item';
 const ITEM_DEFAULT = '化粧品・香水';
 const ITEM_MAIN = ['宿泊費', '飲食費', '交通費', '娯楽等サービス費', '買物代'];
-// 国・地域の色（市場レポートPDF・Webの宿泊マップと同じ）
-const MK_COLOR = { '韓国': '#2f6db5', '中国': '#c0463f', '台湾': '#2f8f5b', '香港': '#8a4fb0', '米国': '#1f7f8f', 'タイ': '#d27a1f',
-  'マレーシア': '#a88a12', 'インドネシア': '#a0522d', 'ベトナム': '#b8467e', 'シンガポール': '#5b8c3a', 'フィリピン': '#6d5a8e',
-  '豪州': '#3f6f9e', 'カナダ': '#9b6b43', '英国': '#4a5a7a', 'フランス': '#7a8fb0', 'ドイツ': '#5a5a5a', 'イタリア': '#4f8a7a', 'スペイン': '#b07a3a' };
 
-const ItemEstimateBlock = () => {
+
+// 概観に置く1枚：化粧品・香水の当年累計と上位3市場。押すと「品目別」タブへ
+const ItemTeaser = ({ onOpen }) => {
   const [tab, setTab] = useState(null);
-  const [period, setPeriod] = useState(null);
-  const [item, setItem] = useState(ITEM_DEFAULT);
-
   useEffect(() => {
     let cancel = false;
-    fetchSheet('消費_品目').then(rows => {
-      if (cancel || !rows?.length) return;
+    loadItemSheet().then(t => { if (!cancel && t) setTab(t); });
+    return () => { cancel = true; };
+  }, []);
+  if (!tab?.periods?.length) return null;
+  const p0 = tab.periods[0];
+  const rows = tab.list.filter(r => r.period === p0 && r.item === ITEM_DEFAULT);
+  const all = rows.find(r => r.market === UNIT_ALL);
+  if (!all) return null;
+  const top = rows.filter(r => r.market !== UNIT_ALL && r.market !== 'その他' && r.est > 0).sort((a, b) => b.est - a.est).slice(0, 3);
+  const oku = (v) => Math.round(v).toLocaleString('ja-JP');
+  const label = p0.replace(/\s*（.*?）/g, '').replace(/\s+/g, '');
+  return (
+    <Card style={{ borderTop: `3px solid ${T.inkDark}` }}>
+      <div className="teaser-grid" style={teaserStyles.grid}>
+        <div>
+          <p style={teaserStyles.kicker}>品目別 推計消費額<span style={teaserStyles.new}>NEW</span></p>
+          <p style={teaserStyles.lead}>{ITEM_DEFAULT}（{label}・全国籍）</p>
+          <p style={teaserStyles.num}>{oku(all.est)}<span style={teaserStyles.unit}>億円</span></p>
+        </div>
+        <div>
+          {top.map(r => (
+            <div key={r.market} style={teaserStyles.row}>
+              <span style={{ ...teaserStyles.chip, backgroundColor: colorOf(r.market) }} />
+              <span style={teaserStyles.mk}>{r.market}</span>
+              <span style={teaserStyles.val}>{oku(r.est)}億円</span>
+              <span style={teaserStyles.share}>{(r.est / all.est * 100).toFixed(1)}%</span>
+            </div>
+          ))}
+        </div>
+        <button type="button" onClick={onOpen} style={teaserStyles.btn}>16品目×国・地域を見る →</button>
+      </div>
+      <p style={teaserStyles.note}>菓子類・衣類・医薬品など、買物の16品目ごとに「どの国の人がいくら買ったか」を推計（訪日客数×購入率×購入者単価、当社算出）。</p>
+    </Card>
+  );
+};
+const teaserStyles = {
+  grid: { display: 'grid', gridTemplateColumns: '1.1fr 1.3fr auto', gap: 28, alignItems: 'center' },
+  kicker: { margin: 0, fontSize: 13, fontWeight: 700, color: T.inkDark, display: 'flex', alignItems: 'center', gap: 8 },
+  new: { fontSize: 9, fontWeight: 700, color: '#fff', backgroundColor: T.accent, padding: '2px 5px', borderRadius: 2, letterSpacing: '0.06em' },
+  lead: { margin: '8px 0 0', fontSize: 12, color: T.muted },
+  num: { margin: '2px 0 0', fontSize: 36, fontWeight: 700, color: T.inkDark, fontFamily: T.mono, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' },
+  unit: { marginLeft: 4, fontSize: 13, fontWeight: 400, color: T.muted, fontFamily: T.sans },
+  row: { display: 'grid', gridTemplateColumns: '10px 1fr auto 52px', gap: 10, alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${T.lineSoft}` },
+  chip: { width: 10, height: 10, borderRadius: 2, display: 'inline-block' },
+  mk: { fontSize: 13, fontWeight: 700, color: T.ink },
+  val: { fontSize: 13, fontWeight: 700, color: T.inkDark, fontFamily: T.mono, textAlign: 'right' },
+  share: { fontSize: 11, color: T.muted, fontFamily: T.mono, textAlign: 'right' },
+  btn: { padding: '12px 18px', fontSize: 13, fontWeight: 700, color: '#fff', background: T.inkDark, border: 'none', borderRadius: 4, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: T.sans },
+  note: { margin: '14px 0 0', fontSize: 11, color: T.muted, lineHeight: 1.7 },
+};
+
+const ItemTab = ({ sheets }) => (
+  <div style={{ display: 'grid', gap: 24 }}>
+    <ItemEstimateBlock sheetsPeriod={sheets?.period} />
+    <UnitPriceBlock />
+  </div>
+);
+
+// 上部の期間ボタンと合わせる：年間→その年（確報）、四半期→同じ四半期。該当がなければ先頭（当年累計）
+const matchItemPeriod = (periods, sp) => {
+  if (!sp || !periods?.length) return periods?.[0];
+  if (sp.type === 'year') return periods.find(p => p.startsWith(`${sp.year}年（`)) || periods[0];
+  if (sp.type === 'quarter') {
+    const q = Number(sp.q), m1 = (q - 1) * 3 + 1, m2 = q * 3;
+    return periods.find(p => p.startsWith(`${sp.year}年${m1}-${m2}月期`)) || periods[0];
+  }
+  return periods[0];
+};
+
+let itemSheetPromise = null;
+const loadItemSheet = () => {
+  if (!itemSheetPromise) {
+    itemSheetPromise = fetchSheet('消費_品目').then(rows => {
+      if (!rows?.length) { itemSheetPromise = null; return null; }
       const meta = rows[0] || [];
       const mi = (k, d) => { const i = meta.indexOf(k); return i >= 0 ? meta[i + 1] : d; };
       const end = meta.indexOf('minN');
@@ -2483,11 +2524,27 @@ const ItemEstimateBlock = () => {
         rate: parseFloat(r[4]), unit: parseNumber(r[5]), n: r[6] === '' || r[6] == null ? null : parseNumber(r[6]),
         est: parseFloat(String(r[7]).replace(/,/g, '')), low: String(r[8] || '') === '1',
       }));
-      setTab({ periods, list, minN: Number(mi('minN', 30)), show: Number(mi('show', 5)) });
-      setPeriod(periods[0]);
-    }).catch(() => {});
+      return { periods, list, minN: Number(mi('minN', 30)), show: Number(mi('show', 5)) };
+    }).catch(() => { itemSheetPromise = null; return null; });
+  }
+  return itemSheetPromise;
+};
+
+const ItemEstimateBlock = ({ sheetsPeriod }) => {
+  const [tab, setTab] = useState(null);
+  const [period, setPeriod] = useState(null);
+  const [item, setItem] = useState(ITEM_DEFAULT);
+
+  useEffect(() => {
+    let cancel = false;
+    loadItemSheet().then(t => { if (!cancel && t) setTab(t); });
     return () => { cancel = true; };
   }, []);
+
+  const spKey = sheetsPeriod?.key;
+  useEffect(() => {
+    if (tab) setPeriod(matchItemPeriod(tab.periods, sheetsPeriod));
+  }, [tab, spKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!tab || !period) return null;
   const inP = tab.list.filter(r => r.period === period);
@@ -2536,7 +2593,7 @@ const ItemEstimateBlock = () => {
       )}
       <div style={itemStyles.head}><span>国・地域（推計消費額の大きい順・上位{tab.show}）</span><span>全体に占める割合</span></div>
       {top.map(r => {
-        const low = isLow(r), col = MK_COLOR[r.market] || T.inkDark;
+        const low = isLow(r), col = colorOf(r.market);
         return (
           <div key={r.market} className="item-row" style={itemStyles.row}>
             <span style={itemStyles.name}>{r.market}</span>
@@ -2741,8 +2798,6 @@ const CompositionTab = ({ data, prev, sheets }) => {
         </div>
       </Card>
 
-      <UnitPriceBlock />
-      <ItemEstimateBlock />
     </div>
   );
 };
@@ -2962,7 +3017,7 @@ const MatrixSection = ({ data, prev, sheets }) => {
             />
             <Scatter data={chartData}>
               {chartData.map((e, i) => (
-                <Cell key={i} fill={T.region[e.region]} fillOpacity={0.75} stroke={T.region[e.region]} />
+                <Cell key={i} fill={colorOf(e.country)} fillOpacity={0.85} stroke={colorOf(e.country)} />
               ))}
             </Scatter>
           </ScatterChart>
@@ -2977,6 +3032,7 @@ const MatrixSection = ({ data, prev, sheets }) => {
                   fontFamily: T.mono, fontSize: 10, color: T.faint, minWidth: 20,
                   fontVariantNumeric: 'tabular-nums',
                 }}>{String(i + 1).padStart(2, '0')}</span>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: colorOf(d.country), display: 'inline-block', flexShrink: 0 }} />
                 <span style={{ fontSize: 14 }}>{d.flag}</span>
                 <span style={{ fontSize: 12, color: T.ink, fontWeight: 500, flex: 1 }}>{d.country}</span>
                 <Delta change={{ value: d.growth, positive: d.growth >= 0 }} size="sm" />
@@ -2987,12 +3043,7 @@ const MatrixSection = ({ data, prev, sheets }) => {
       </div>
 
       <div style={mxStyles.legend}>
-        {Object.entries(T.region).map(([r, c]) => (
-          <div key={r} style={mxStyles.legendItem}>
-            <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: c, display: 'inline-block' }} />
-            <span>{r}</span>
-          </div>
-        ))}
+        <span style={mxStyles.legendItem}>点の色は国・地域（右の主要市場の色と同じ）</span>
       </div>
     </Card>
   );
@@ -3028,11 +3079,11 @@ const MarketShareSection = ({ data, sheets }) => {
     const palette = [T.inkDark, T.accent, '#44403c', '#78716c', '#a8a29e', '#d6d3d1', T.lineSoft];
     const res = top6.map((c, i) => ({
       country: c.country, value: c.total, share: (c.total / tot) * 100,
-      flag: COUNTRY_FLAGS[c.country], color: palette[i],
+      flag: COUNTRY_FLAGS[c.country], color: colorOf(c.country),
     }));
     if (othTot > 0) res.push({
       country: 'その他', value: othTot, share: (othTot / tot) * 100,
-      flag: '—', color: palette[6],
+      flag: '—', color: colorOf('その他'),
     });
     return res;
   }, [data]);
@@ -3677,7 +3728,18 @@ const cardStyles = {
 export default function App() {
   const [period, setPeriod] = useState(PERIODS[0].key);
   const [metaVer, setMetaVer] = useState(0);
-  const [activeTab, setActiveTab] = useState('overview');
+  // ?tab=item などで最初に開くタブを指定できる（営業メール・SNSからの直リンク用）
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const t = new URLSearchParams(window.location.search).get('tab');
+      return ['overview', 'item', 'countries', 'composition', 'analysis'].includes(t) ? t : 'overview';
+    } catch (_) { return 'overview'; }
+  });
+  const navRef = useRef(null);
+  const openItemTab = () => {
+    setActiveTab('item');
+    try { navRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {}
+  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState([]);
@@ -3853,7 +3915,9 @@ export default function App() {
   return (
     <div ref={rootRef} style={appStyles.root}>
       <HeroStrip sheets={sheets} kpi={kpi} loading={loading} />
-      <StickyNav period={period} setPeriod={setPeriod} activeTab={activeTab} setActiveTab={setActiveTab} />
+      <div ref={navRef} style={{ position: 'sticky', top: 0, zIndex: 50 }}>
+        <StickyNav period={period} setPeriod={setPeriod} activeTab={activeTab} setActiveTab={setActiveTab} />
+      </div>
 
       <main style={appStyles.main}>
         {error && <div style={appStyles.err}>{error}</div>}
@@ -3865,7 +3929,8 @@ export default function App() {
           </div>
         ) : (
           <div className="fig-scope">
-            {activeTab === 'overview'    && <OverviewTab data={data} prev={prev} sheets={sheets} />}
+            {activeTab === 'overview'    && <OverviewTab data={data} prev={prev} sheets={sheets} onOpenItem={openItemTab} />}
+            {activeTab === 'item'        && <ItemTab sheets={sheets} />}
             {activeTab === 'countries'   && <CountriesTab data={data} prev={prev} sheets={sheets}
                                                            salesData={salesData} loadingSales={loadingSales}
                                                            expanded={expanded} setExpanded={setExpanded} />}
@@ -4041,6 +4106,10 @@ sheet.textContent = `
       width: 100%;
       overflow-x: auto;
     }
+    .nav-tabs button { padding: 10px 12px !important; }
+    .teaser-grid { grid-template-columns: 1fr !important; gap: 14px !important; }
+    /* タブの中身（display:grid）が子の最小幅で画面より広がらないように */
+    .fig-scope > div { grid-template-columns: minmax(0, 1fr); }
 
     /* Overview: stack two-col */
     .two-col {
