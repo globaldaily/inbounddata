@@ -655,7 +655,7 @@ const heroStyles = {
 const StickyNav = ({ period, setPeriod, activeTab, setActiveTab }) => {
   const tabs = [
     { id: 'overview',    label: '概観' },
-    { id: 'item',        label: '品目別', isNew: true },
+    { id: 'item',        label: '品目別 消費額', isNew: true },
     { id: 'countries',   label: '国別' },
     { id: 'composition', label: '構成' },
     { id: 'analysis',    label: '分析' },
@@ -777,6 +777,8 @@ const navStyles = {
     cursor: 'pointer',
     transition: 'all 0.15s',
     fontFamily: T.sans,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
   },
   tabActive: {
     color: T.inkDark,
@@ -2495,7 +2497,6 @@ const teaserStyles = {
 const ItemTab = ({ sheets }) => (
   <div style={{ display: 'grid', gap: 24 }}>
     <ItemEstimateBlock sheetsPeriod={sheets?.period} />
-    <UnitPriceBlock />
   </div>
 );
 
@@ -2798,6 +2799,7 @@ const CompositionTab = ({ data, prev, sheets }) => {
         </div>
       </Card>
 
+      <UnitPriceBlock />
     </div>
   );
 };
@@ -4106,7 +4108,7 @@ sheet.textContent = `
       width: 100%;
       overflow-x: auto;
     }
-    .nav-tabs button { padding: 10px 12px !important; }
+    .nav-tabs button { padding: 10px 10px !important; font-size: 13px !important; }
     .teaser-grid { grid-template-columns: 1fr !important; gap: 14px !important; }
     /* タブの中身（display:grid）が子の最小幅で画面より広がらないように */
     .fig-scope > div { grid-template-columns: minmax(0, 1fr); }
