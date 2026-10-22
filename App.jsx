@@ -2335,7 +2335,8 @@ const openReport = (e, via) => {
   setTimeout(() => {
     window.removeEventListener('message', onMsg);
     if (ok) return;
-    try { window.top.location.href = UNIT_CTA; } catch (_) { window.open(UNIT_CTA, '_blank', 'noopener'); }
+    const url = UNIT_CTA.replace('via=spend_unit', 'via=' + via);
+    try { window.top.location.href = url; } catch (_) { window.open(url, '_blank', 'noopener'); }
   }, 700);
 };
 const UNIT_ALL = '全国籍・地域';
@@ -2449,6 +2450,137 @@ const unitStyles = {
   foot: { marginTop: 20, paddingTop: 14, borderTop: `1px solid ${T.line}`, display: 'flex', flexDirection: 'column', gap: 12 },
   note: { fontSize: 11, color: T.muted, lineHeight: 1.7, margin: 0 },
   cta: { alignSelf: 'flex-start', display: 'inline-block', padding: '10px 16px', fontSize: 13, fontWeight: 700, color: '#fff', background: T.inkDark, borderRadius: 4, textDecoration: 'none' },
+};
+
+
+// ============================================================
+// 品目別 推計消費額（シート「消費_品目」）＝訪日客数×購入率×購入者単価
+//   Webは全国籍・地域＋上位5市場まで。全市場・全品目の一覧は市場レポート（PDF）へ誘導
+// ============================================================
+const ITEM_CTA = 'https://www.gldaily.com/download/?from=inbound_statistics&doc=market&via=spend_item';
+const ITEM_DEFAULT = '化粧品・香水';
+const ITEM_MAIN = ['宿泊費', '飲食費', '交通費', '娯楽等サービス費', '買物代'];
+// 国・地域の色（市場レポートPDF・Webの宿泊マップと同じ）
+const MK_COLOR = { '韓国': '#2f6db5', '中国': '#c0463f', '台湾': '#2f8f5b', '香港': '#8a4fb0', '米国': '#1f7f8f', 'タイ': '#d27a1f',
+  'マレーシア': '#a88a12', 'インドネシア': '#a0522d', 'ベトナム': '#b8467e', 'シンガポール': '#5b8c3a', 'フィリピン': '#6d5a8e',
+  '豪州': '#3f6f9e', 'カナダ': '#9b6b43', '英国': '#4a5a7a', 'フランス': '#7a8fb0', 'ドイツ': '#5a5a5a', 'イタリア': '#4f8a7a', 'スペイン': '#b07a3a' };
+
+const ItemEstimateBlock = () => {
+  const [tab, setTab] = useState(null);
+  const [period, setPeriod] = useState(null);
+  const [item, setItem] = useState(ITEM_DEFAULT);
+
+  useEffect(() => {
+    let cancel = false;
+    fetchSheet('消費_品目').then(rows => {
+      if (cancel || !rows?.length) return;
+      const meta = rows[0] || [];
+      const mi = (k, d) => { const i = meta.indexOf(k); return i >= 0 ? meta[i + 1] : d; };
+      const end = meta.indexOf('minN');
+      const periods = meta.slice(1, end > 0 ? end : undefined).map(String).filter(Boolean);
+      const list = rows.slice(2).filter(r => r[0] && r[1] && r[2]).map(r => ({
+        period: String(r[0]), market: String(r[1]), item: String(r[2]), visitors: parseNumber(r[3]),
+        rate: parseFloat(r[4]), unit: parseNumber(r[5]), n: r[6] === '' || r[6] == null ? null : parseNumber(r[6]),
+        est: parseFloat(String(r[7]).replace(/,/g, '')), low: String(r[8] || '') === '1',
+      }));
+      setTab({ periods, list, minN: Number(mi('minN', 30)), show: Number(mi('show', 5)) });
+      setPeriod(periods[0]);
+    }).catch(() => {});
+    return () => { cancel = true; };
+  }, []);
+
+  if (!tab || !period) return null;
+  const inP = tab.list.filter(r => r.period === period);
+  const items = [...new Set(inP.map(r => r.item))];
+  const shopItems = items.filter(i => !ITEM_MAIN.includes(i));
+  const cur = items.includes(item) ? item : ITEM_DEFAULT;
+  const rows = inP.filter(r => r.item === cur);
+  const all = rows.find(r => r.market === UNIT_ALL);
+  const mk = rows.filter(r => r.market !== UNIT_ALL && r.market !== 'その他' && r.est > 0).sort((a, b) => b.est - a.est);
+  const top = mk.slice(0, tab.show), rest = mk.length - top.length;
+  const max = top[0]?.est || 1;
+  const isLow = (r) => r.low || (r.n != null && r.n < tab.minN);
+  const cum = /累計/.test(period);
+  const oku = (v) => v >= 100 ? Math.round(v).toLocaleString('ja-JP') : v.toFixed(1);
+
+  return (
+    <Card>
+      <SectionTitle
+        unit="億円"
+        title="品目別 推計消費額"
+        subtitle="訪日客が日本で買った金額を、買物の品目ごとに推計（訪日客数 × 購入率 × 購入者単価）"
+        aside={
+          <select value={cur} onChange={e => setItem(e.target.value)} style={unitStyles.select} aria-label="品目">
+            {shopItems.map(i => <option key={i} value={i}>{i}</option>)}
+          </select>
+        }
+      />
+      <div style={itemStyles.periods} role="tablist" aria-label="期間">
+        {tab.periods.map(p => (
+          <button key={p} type="button" onClick={() => setPeriod(p)} style={{ ...itemStyles.pBtn, ...(p === period ? itemStyles.pOn : {}) }}>{p}</button>
+        ))}
+      </div>
+      {all && (
+        <div className="item-total" style={itemStyles.total}>
+          <div>
+            <p style={itemStyles.tLabel}>{cur.replace('（計）', '')}｜全国籍・地域</p>
+            <p style={itemStyles.tNum}>{oku(all.est)}<span style={itemStyles.tUnit}>億円</span></p>
+          </div>
+          {!cum && (
+            <p style={itemStyles.formula}>
+              {all.visitors.toLocaleString('ja-JP')}人 × 購入率 {all.rate.toFixed(1)}% × 購入者単価 {Math.round(all.unit).toLocaleString('ja-JP')}円
+            </p>
+          )}
+          {cum && <p style={itemStyles.formula}>各四半期の推計を合算（訪日客 {all.visitors.toLocaleString('ja-JP')}人）</p>}
+        </div>
+      )}
+      <div style={itemStyles.head}><span>国・地域（推計消費額の大きい順・上位{tab.show}）</span><span>全体に占める割合</span></div>
+      {top.map(r => {
+        const low = isLow(r), col = MK_COLOR[r.market] || T.inkDark;
+        return (
+          <div key={r.market} className="item-row" style={itemStyles.row}>
+            <span style={itemStyles.name}>{r.market}</span>
+            <div style={itemStyles.track}>
+              <div style={{ ...itemStyles.bar, width: `${(r.est / max) * 100}%`, background: low ? `repeating-linear-gradient(45deg, ${col}, ${col} 4px, #fff 4px, #fff 7px)` : col }} />
+            </div>
+            <span style={itemStyles.val}>{oku(r.est)}<span style={unitStyles.yen}>億円{low ? '※' : ''}</span></span>
+            <span style={itemStyles.share}>{all ? (r.est / all.est * 100).toFixed(1) + '%' : ''}</span>
+          </div>
+        );
+      })}
+      <div style={unitStyles.foot}>
+        <p style={unitStyles.note}>
+          ※推計方法：推計消費額＝訪日客数×購入率×購入者単価。購入者単価は「買った人」の平均額のため、購入率を掛けて訪日客全体の消費額に換算しています。
+          「化粧品・香水」など一部は複数品目の合算費目で、単独品目の値は公表されていません。斜線・※は購入者{tab.minN}人未満を含む参考値。
+          {cum ? '累計は各四半期の推計の合計です。' : ''}
+        </p>
+        <p style={unitStyles.note}>
+          出典：観光庁「インバウンド消費動向調査」集計表 表2-1（購入率・購入者単価）、調査概要 図表4（一般客の訪日客数。クルーズ客を除く）をもとに当社算出。四捨五入のため合計が一致しない場合があります。
+        </p>
+        <a href={ITEM_CTA} target="_top" rel="noopener" style={unitStyles.cta} onClick={(e) => openReport(e, 'spend_item')}>
+          {rest > 0 ? `ほか${rest}市場と、` : ''}全品目×全市場の一覧は市場レポート（無料PDF）で →
+        </a>
+      </div>
+    </Card>
+  );
+};
+
+const itemStyles = {
+  periods: { display: 'flex', flexWrap: 'wrap', gap: 6, margin: '4px 0 16px' },
+  pBtn: { padding: '6px 12px', fontSize: 12, fontFamily: T.sans, color: T.muted, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 4, cursor: 'pointer' },
+  pOn: { color: '#fff', background: T.inkDark, borderColor: T.inkDark, fontWeight: 700 },
+  total: { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, paddingBottom: 14, marginBottom: 6, borderBottom: `2px solid ${T.inkDark}` },
+  tLabel: { margin: 0, fontSize: 12, fontWeight: 700, color: T.muted },
+  tNum: { margin: '2px 0 0', fontSize: 34, fontWeight: 700, color: T.inkDark, fontFamily: T.mono, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' },
+  tUnit: { marginLeft: 4, fontSize: 13, fontWeight: 400, color: T.muted, fontFamily: T.sans },
+  formula: { margin: 0, fontSize: 11, color: T.muted, fontFamily: T.mono },
+  head: { display: 'flex', justifyContent: 'space-between', fontSize: 10, color: T.faint, padding: '8px 0 6px', borderBottom: `1px solid ${T.line}` },
+  row: { display: 'grid', gridTemplateColumns: '96px 1fr 110px 56px', gap: 12, alignItems: 'center', padding: '9px 0', borderBottom: `1px solid ${T.lineSoft}` },
+  name: { fontSize: 13, fontWeight: 700, color: T.ink },
+  track: { height: 14, background: T.lineSoft },
+  bar: { height: '100%' },
+  val: { fontSize: 14, fontWeight: 700, color: T.inkDark, textAlign: 'right', fontFamily: T.mono, fontVariantNumeric: 'tabular-nums' },
+  share: { fontSize: 11, color: T.muted, textAlign: 'right', fontFamily: T.mono },
 };
 
 const CompositionTab = ({ data, prev, sheets }) => {
@@ -2610,6 +2742,7 @@ const CompositionTab = ({ data, prev, sheets }) => {
       </Card>
 
       <UnitPriceBlock />
+      <ItemEstimateBlock />
     </div>
   );
 };
@@ -3935,6 +4068,7 @@ sheet.textContent = `
   /* ===== MOBILE (600px and below) ===== */
   @media (max-width: 600px) {
     .unit-row { grid-template-columns: 1.5fr 0.55fr 1fr 0.85fr !important; gap: 6px !important; }
+    .item-row { grid-template-columns: 72px 1fr 86px 44px !important; gap: 8px !important; }
     .unit-track { display: none !important; }
     .hero-inner {
       padding: 28px 16px 24px !important;
