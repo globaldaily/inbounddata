@@ -22,7 +22,7 @@ const T = {
   inkDark: '#0c0a09',
   ink: '#1c1917',
   muted: '#57534e',
-  faint: '#a8a29e',
+  faint: '#78716c',
   line: '#e7e5e4',
   lineSoft: '#f5f5f4',
   accent: '#b91c1c',      // brand red
@@ -451,7 +451,7 @@ const SectionTitle = ({ title, subtitle, unit, source = '観光庁「インバ�
         alignItems: 'center',
         flexWrap: 'wrap',
         gap: '2px 10px',
-        fontSize: 11,
+        fontSize: 13,
         color: T.faint,
         letterSpacing: '0.02em',
         marginBottom: 6,
@@ -563,10 +563,10 @@ const heroStyles = {
   },
   left: {},
   kicker: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 600,
     letterSpacing: '0.14em',
-    textTransform: 'uppercase',
+    textTransform: 'none',
     opacity: 0.55,
     marginBottom: 12,
   },
@@ -584,14 +584,14 @@ const heroStyles = {
     lineHeight: 1.1,
   },
   periodBadge: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 700,
     padding: '4px 8px',
     backgroundColor: T.accent,
     color: '#fff',
     borderRadius: 2,
     letterSpacing: '0.08em',
-    textTransform: 'uppercase',
+    textTransform: 'none',
   },
   sub: {
     fontSize: 12,
@@ -600,7 +600,7 @@ const heroStyles = {
     letterSpacing: '0.02em',
   },
   release: {
-    fontSize: 11,
+    fontSize: 13,
     lineHeight: 1.7,
     opacity: 0.7,
     marginTop: 6,
@@ -610,7 +610,7 @@ const heroStyles = {
     display: 'inline-block',
     marginLeft: 6,
     padding: '0 6px',
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 700,
     border: '1px solid rgba(255,255,255,0.5)',
     borderRadius: 2,
@@ -626,11 +626,11 @@ const heroStyles = {
     borderLeft: '1px solid rgba(255,255,255,0.15)',
   },
   kpiLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 500,
     opacity: 0.6,
     letterSpacing: '0.08em',
-    textTransform: 'uppercase',
+    textTransform: 'none',
     marginBottom: 10,
   },
   kpiValue: {
@@ -643,7 +643,7 @@ const heroStyles = {
     gap: 6,
   },
   kpiDeltaLabel: {
-    fontSize: 10,
+    fontSize: 12,
     opacity: 0.5,
     letterSpacing: '0.05em',
   },
@@ -753,7 +753,7 @@ const navStyles = {
     fontVariantNumeric: 'tabular-nums',
   },
   periodBtnBadge: {
-    fontSize: 9,
+    fontSize: 13,
     fontWeight: 700,
     padding: '1px 5px',
     borderRadius: 2,
@@ -795,7 +795,7 @@ const navStyles = {
     whiteSpace: 'nowrap',
   },
   newBadge: {
-    fontSize: 9,
+    fontSize: 13,
     fontWeight: 700,
     color: '#fff',
     backgroundColor: T.accent,
@@ -813,10 +813,10 @@ const navStyles = {
 const HighlightItem = ({ kicker, value, label, note, valueColor }) => (
   <div style={{ flex: 1, minWidth: 140 }}>
     <div style={{
-      fontSize: 10,
+      fontSize: 12,
       fontWeight: 600,
       color: T.muted,
-      textTransform: 'uppercase',
+      textTransform: 'none',
       letterSpacing: '0.12em',
       marginBottom: 10,
       paddingBottom: 8,
@@ -844,7 +844,7 @@ const HighlightItem = ({ kicker, value, label, note, valueColor }) => (
       {label}
     </div>
     {note && (
-      <div style={{ fontSize: 11, color: T.muted, letterSpacing: '0.01em' }}>
+      <div style={{ fontSize: 13, color: T.muted, letterSpacing: '0.01em' }}>
         {note}
       </div>
     )}
@@ -1003,10 +1003,10 @@ const PieHoverTooltip = ({ active, payload, total }) => {
         lineHeight: 1,
       }}>
         {formatOku(d.value)}
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginLeft: 3, fontWeight: 500 }}>億円</span>
+        <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginLeft: 3, fontWeight: 500 }}>億円</span>
       </div>
       <div style={{
-        fontSize: 11,
+        fontSize: 13,
         color: 'rgba(255,255,255,0.75)',
         marginTop: 4,
         fontFamily: T.mono,
@@ -1067,7 +1067,7 @@ const ConsumptionDonut = ({ data, label, topN = 15 }) => {
         </text>
         <text x={x} y={y + 2} textAnchor="middle"
               style={{
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 700,
                 fill: '#fff',
                 fontFamily: T.mono,
@@ -1080,7 +1080,7 @@ const ConsumptionDonut = ({ data, label, topN = 15 }) => {
         </text>
         <text x={x} y={y + 15} textAnchor="middle"
               style={{
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 600,
                 fill: 'rgba(255,255,255,0.9)',
                 fontFamily: T.mono,
@@ -1106,7 +1106,7 @@ const ConsumptionDonut = ({ data, label, topN = 15 }) => {
           {label}
         </div>
         <div style={{
-          fontSize: 10,
+          fontSize: 12,
           color: T.faint,
           marginTop: 6,
           letterSpacing: '0.05em',
@@ -1116,15 +1116,15 @@ const ConsumptionDonut = ({ data, label, topN = 15 }) => {
       </div>
 
       {/* Pie chart */}
-      <div style={{ position: 'relative', width: '100%', height: 500 }}>
+      <div className="pie-box" style={{ position: 'relative', width: '100%', height: 500 }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
             <Pie
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius={105}
-              outerRadius={195}
+              innerRadius="46%"
+              outerRadius="85%"
               paddingAngle={0.5}
               startAngle={90}
               endAngle={-270}
@@ -1153,7 +1153,7 @@ const ConsumptionDonut = ({ data, label, topN = 15 }) => {
           textAlign: 'center',
           pointerEvents: 'none',
         }}>
-          <div style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 12, color: T.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'none' }}>
             総消費額
           </div>
           <div style={{
@@ -1208,10 +1208,10 @@ const ConsumptionComparisonTable = ({ current, previous, currentLabel, prevLabel
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Kicker */}
       <div style={{
-        fontSize: 11,
+        fontSize: 13,
         fontWeight: 700,
         color: T.muted,
-        textTransform: 'uppercase',
+        textTransform: 'none',
         letterSpacing: '0.12em',
         marginBottom: 4,
         textAlign: 'left',
@@ -1225,10 +1225,10 @@ const ConsumptionComparisonTable = ({ current, previous, currentLabel, prevLabel
         gridTemplateColumns: '12px minmax(80px, 1.1fr) 72px 72px 70px',
         gap: 10,
         alignItems: 'center',
-        fontSize: 10,
+        fontSize: 12,
         fontWeight: 600,
         color: T.muted,
-        textTransform: 'uppercase',
+        textTransform: 'none',
         letterSpacing: '0.1em',
         paddingBottom: 10,
         borderBottom: `2px solid ${T.inkDark}`,
@@ -1269,7 +1269,7 @@ const ConsumptionComparisonTable = ({ current, previous, currentLabel, prevLabel
               textAlign: 'right',
             }}>
               {formatOku(r.current)}
-              <span style={{ color: T.muted, fontSize: 10, marginLeft: 2, fontWeight: 500 }}>億</span>
+              <span style={{ color: T.muted, fontSize: 12, marginLeft: 2, fontWeight: 500 }}>億</span>
             </span>
             <span style={{
               fontFamily: T.mono,
@@ -1279,7 +1279,7 @@ const ConsumptionComparisonTable = ({ current, previous, currentLabel, prevLabel
               textAlign: 'right',
             }}>
               {r.prev > 0 ? formatOku(r.prev) : '—'}
-              {r.prev > 0 && <span style={{ fontSize: 10, marginLeft: 2 }}>億</span>}
+              {r.prev > 0 && <span style={{ fontSize: 12, marginLeft: 2 }}>億</span>}
             </span>
             <span style={{
               fontFamily: T.mono,
@@ -1308,13 +1308,13 @@ const ConsumptionComparisonTable = ({ current, previous, currentLabel, prevLabel
               background: 'transparent',
               border: `1px solid ${T.line}`,
               borderRadius: 3,
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: 600,
               color: T.ink,
               fontFamily: T.sans,
               letterSpacing: '0.04em',
               cursor: 'pointer',
-              textTransform: 'uppercase',
+              textTransform: 'none',
               transition: 'all 0.15s ease',
             }}
             onMouseEnter={(e) => {
@@ -1332,6 +1332,95 @@ const ConsumptionComparisonTable = ({ current, previous, currentLabel, prevLabel
           </button>
         )}
       </div>
+    </div>
+  );
+};
+
+// ============================================================
+// 国別 消費額：今年＝市場色の太い棒／前年同期＝灰色の細い棒（表の代わり）
+// ============================================================
+const ConsumptionBars = ({ current, previous, currentLabel, prevLabel, topN = 10 }) => {
+  const [open, setOpen] = useState(false);
+  const rows = useMemo(() => {
+    if (!current?.length) return [];
+    const pm = {}; (previous || []).forEach(p => { pm[p.country] = p.total || 0; });
+    return current.filter(d => d.country !== '全国籍・地域' && d.country !== 'その他' && d.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .map(d => ({ name: d.country, v: d.total, p: pm[d.country] || 0, yoy: pm[d.country] > 0 ? (d.total - pm[d.country]) / pm[d.country] * 100 : null }));
+  }, [current, previous]);
+  if (!rows.length) return null;
+  const list = open ? rows : rows.slice(0, topN);
+  const max = Math.max(...rows.map(r => Math.max(r.v, r.p)));
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 16, fontSize: 13, color: T.ink, marginBottom: 10, flexWrap: 'wrap' }}>
+        <span>太い棒＝{currentLabel}（市場の色）</span>
+        <span><i style={{ display: 'inline-block', width: 14, height: 4, background: '#bdbdbd', marginRight: 6, verticalAlign: 3 }} />細い棒＝{prevLabel}</span>
+      </div>
+      {list.map(r => (
+        <div key={r.name} className="cb-row" style={{ display: 'grid', gridTemplateColumns: '112px 1fr 122px', alignItems: 'center', columnGap: 10, padding: '7px 0', borderBottom: `1px solid ${T.line}` }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: T.inkDark, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
+          <div>
+            <div style={{ height: 12, width: `${r.v / max * 100}%`, background: colorOf(r.name) }} />
+            <div style={{ height: 4, width: `${r.p / max * 100}%`, background: '#bdbdbd', marginTop: 3 }} />
+          </div>
+          <span style={{ textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+            <b style={{ fontSize: 15, color: T.inkDark }}>{formatOku(r.v)}</b><span style={{ fontSize: 12, color: T.muted }}>億</span>
+            {r.yoy != null && <b style={{ fontSize: 13, marginLeft: 8, color: r.yoy < 0 ? T.negative : T.inkDark }}>{r.yoy >= 0 ? '+' : '−'}{Math.abs(r.yoy).toFixed(1)}%</b>}
+          </span>
+        </div>
+      ))}
+      {rows.length > topN && (
+        <button onClick={() => setOpen(!open)} style={{ marginTop: 12, width: '100%', padding: 10, fontSize: 14, fontWeight: 700, color: T.inkDark, background: '#fff', border: `1px solid ${T.line}`, borderRadius: 3, cursor: 'pointer', fontFamily: T.sans }}>
+          {open ? '上位10市場に戻す' : `残り${rows.length - topN}市場を表示`}
+        </button>
+      )}
+    </div>
+  );
+};
+// 地域構成：100%積み上げ棒1本
+const RegionStack = ({ regional }) => {
+  if (!regional?.length) return null;
+  return (
+    <div>
+      <div style={{ display: 'flex', height: 28, overflow: 'hidden' }}>
+        {regional.map(r => <div key={r.region} title={`${r.region} ${r.share.toFixed(1)}%`} style={{ width: `${r.share}%`, background: T.region[r.region], borderRight: '2px solid #fff' }} />)}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${regional.length}, minmax(0, 1fr))`, gap: 12, marginTop: 12 }} className="reg-grid">
+        {regional.map(r => (
+          <div key={r.region}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.inkDark }}><i style={{ display: 'inline-block', width: 10, height: 10, background: T.region[r.region], marginRight: 6 }} />{r.region}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: T.inkDark, fontVariantNumeric: 'tabular-nums' }}>{r.share.toFixed(1)}%</div>
+            <div style={{ fontSize: 13, color: T.muted }}>{formatOku(r.total)}億円</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+// 買物品目別 購入者単価：2024年＝濃い棒／2023年＝灰色の細い棒
+const SalesBars = ({ data }) => {
+  const max = Math.max(...data.map(s => Math.max(s.y2024 || 0, s.y2023 || 0)), 1);
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div style={ctryStyles.breakdownTitle}>買物品目別 購入者単価（年間）</div>
+      <div style={{ fontSize: 13, color: T.ink, margin: '4px 0 8px' }}>濃い棒＝2024年　<i style={{ display: 'inline-block', width: 14, height: 4, background: '#bdbdbd', margin: '0 6px', verticalAlign: 3 }} />細い棒＝2023年</div>
+      {data.map((s, i) => {
+        const g = s.yoy ? (s.yoy - 1) * 100 : null;
+        return (
+          <div key={i} className="cb-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(90px, 160px) 1fr 140px', alignItems: 'center', columnGap: 10, padding: '6px 0', borderBottom: `1px solid ${T.line}` }}>
+            <span style={{ fontSize: 13, color: T.inkDark }}>{s.item}</span>
+            <div>
+              <div style={{ height: 10, width: `${(s.y2024 || 0) / max * 100}%`, background: T.inkDark }} />
+              <div style={{ height: 4, width: `${(s.y2023 || 0) / max * 100}%`, background: '#bdbdbd', marginTop: 3 }} />
+            </div>
+            <span style={{ textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+              <b style={{ fontSize: 14, color: T.inkDark }}>{formatNum(s.y2024, 0)}</b><span style={{ fontSize: 12, color: T.muted }}>円</span>
+              {g != null && <b style={{ fontSize: 13, marginLeft: 8, color: g < 0 ? T.negative : T.inkDark }}>{g >= 0 ? '+' : '−'}{Math.abs(g).toFixed(1)}%</b>}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -1365,7 +1454,7 @@ const ConsumptionPieSection = ({ data, prev, sheets }) => {
         aside={
           totalPrev > 0 && (
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: 12, color: T.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'none' }}>
                 前年同期比
               </div>
               <div style={{
@@ -1389,7 +1478,7 @@ const ConsumptionPieSection = ({ data, prev, sheets }) => {
         alignItems: 'start',
       }} className="pie-grid">
         <ConsumptionDonut data={data} label={periodLabel} />
-        <ConsumptionComparisonTable
+        <ConsumptionBars
           current={data}
           previous={prev}
           currentLabel={periodLabel}
@@ -1460,85 +1549,11 @@ const OverviewTab = ({ data, prev, sheets, onOpenItem }) => {
       {/* COUNTRY BREAKDOWN PIE - current vs prev year */}
       <ConsumptionPieSection data={data} prev={prev} sheets={sheets} />
 
-      {/* TOP COUNTRIES (left) + REGIONAL (right) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 24 }} className="two-col">
-        <Card>
-          <SectionTitle
-            unit="億円"
-            title="国別 TOP 10"
-            subtitle={`${sheets?.periodLabel} 消費額上位`}
-          />
-          {/* Region color legend — color is grouping only, not value judgement */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {top10.map((c, i) => {
-              const region = getRegion(c.country);
-              return (
-                <div key={c.country} style={ovStyles.rankRow} className="rank-row">
-                  <div style={ovStyles.rankNum}>{String(i + 1).padStart(2, '0')}</div>
-                  <div style={ovStyles.rankCountry}>
-                    <span style={ovStyles.rankFlag}>{COUNTRY_FLAGS[c.country]}</span>
-                    <span>{c.country}</span>
-                  </div>
-                  <div style={ovStyles.rankBarWrap}>
-                    <HBar value={c.total} max={maxTotal} color={colorOf(c.country)} height={6} />
-                  </div>
-                  <div style={ovStyles.rankValue}>
-                    <BigNum value={formatOku(c.total)} unit="億" size="md" />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        <Card>
-          <SectionTitle
-            unit="%"
-            title="地域構成"
-            subtitle="消費額シェア"
-          />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {regional.map(r => (
-              <div key={r.region}>
-                <div style={ovStyles.regRow}>
-                  <span style={ovStyles.regName}>
-                    <span style={{
-                      display: 'inline-block', width: 3, height: 14,
-                      backgroundColor: T.region[r.region],
-                      marginRight: 10, verticalAlign: 'middle',
-                    }} />
-                    {r.region}
-                  </span>
-                  <span style={ovStyles.regValue}>
-                    {formatOku(r.total)}<span style={{ fontSize: 11, color: T.faint, marginLeft: 4 }}>億</span>
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
-                  <div style={{ flex: 1 }}>
-                    <HBar value={r.total} max={maxRegion} color={T.region[r.region]} height={4} />
-                  </div>
-                  <span style={{
-                    fontSize: 11, color: T.muted, minWidth: 40, textAlign: 'right',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}>{r.share.toFixed(1)}%</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      {/* MOVERS - gainers + losers */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }} className="two-col">
-        <Card style={{ borderLeft: `3px solid ${T.positive}` }}>
-          <SectionTitle sub title="伸びた市場" />
-          <MoverList items={movers.gainers} />
-        </Card>
-        <Card style={{ borderLeft: `3px solid ${T.negative}` }}>
-          <SectionTitle sub title="減った市場" />
-          <MoverList items={movers.losers} />
-        </Card>
-      </div>
+      {/* 地域構成（国別TOP10は上の棒グラフと重複するため削除） */}
+      <Card>
+        <SectionTitle unit="%" title="地域構成" subtitle={`${sheets?.periodLabel || ''} 消費額シェア`} />
+        <RegionStack regional={regional} />
+      </Card>
     </div>
   );
 };
@@ -1547,7 +1562,6 @@ const MoverList = ({ items }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
     {items.map(m => (
       <div key={m.country} style={ovStyles.moverRow}>
-        <span style={ovStyles.rankFlag}>{COUNTRY_FLAGS[m.country]}</span>
         <span style={ovStyles.moverCountry}>{m.country}</span>
         <span style={ovStyles.moverValue}>{formatOku(m.total)}億円</span>
         <Delta change={{ value: m.growth, positive: m.growth >= 0 }} size="md" />
@@ -1568,7 +1582,7 @@ const ovStyles = {
   },
   rankNum: {
     fontFamily: T.mono,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 600,
     color: T.faint,
     fontVariantNumeric: 'tabular-nums',
@@ -1649,10 +1663,10 @@ const TrendChart = ({ data, highlightLabel }) => {
           alignItems: 'center',
         }}>
           <span style={{
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 600,
             color: T.muted,
-            textTransform: 'uppercase',
+            textTransform: 'none',
             letterSpacing: '0.08em',
           }}>
             年度
@@ -1671,7 +1685,7 @@ const TrendChart = ({ data, highlightLabel }) => {
                 display: 'inline-block',
               }} />
               <span style={{
-                fontSize: 11,
+                fontSize: 13,
                 color: T.ink,
                 fontWeight: 500,
                 fontFamily: T.mono,
@@ -1688,7 +1702,7 @@ const TrendChart = ({ data, highlightLabel }) => {
                 display: 'inline-block',
               }} />
               <span style={{
-                fontSize: 11,
+                fontSize: 13,
                 color: '#b91c1c',
                 fontWeight: 700,
                 fontFamily: T.mono,
@@ -1715,7 +1729,7 @@ const TrendChart = ({ data, highlightLabel }) => {
 
       {/* Hover hint */}
       <div style={{
-        fontSize: 10,
+        fontSize: 12,
         color: T.faint,
         marginBottom: 8,
         letterSpacing: '0.05em',
@@ -1728,7 +1742,7 @@ const TrendChart = ({ data, highlightLabel }) => {
           <CartesianGrid strokeDasharray="2 4" stroke={T.line} vertical={false} />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 11, fill: T.muted, fontFamily: T.mono }}
+            tick={{ fontSize: 13, fill: T.muted, fontFamily: T.mono }}
             axisLine={{ stroke: T.line }}
             tickLine={false}
             tickFormatter={(v) => {
@@ -1745,13 +1759,13 @@ const TrendChart = ({ data, highlightLabel }) => {
               const [yy] = payload.value.split('/');
               const prev = index > 0 ? data[index - 1].label.split('/')[0] : null;
               if (yy !== prev) {
-                return <text x={x} y={y + 16} textAnchor="start" style={{ fontSize: 10, fill: T.faint, fontFamily: T.mono, letterSpacing: '0.08em' }}>'{yy}</text>;
+                return <text x={x} y={y + 16} textAnchor="start" style={{ fontSize: 12, fill: T.faint, fontFamily: T.mono, letterSpacing: '0.08em' }}>'{yy}</text>;
               }
               return null;
             }}
           />
           <YAxis
-            tick={{ fontSize: 10, fill: T.muted, fontFamily: T.mono }}
+            tick={{ fontSize: 12, fill: T.muted, fontFamily: T.mono }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => metric === 'total' ? `${(v / 10000).toFixed(1)}兆` : `${v}万`}
@@ -1841,7 +1855,7 @@ const trStyles = {
   },
   tipLabel: {
     fontFamily: T.mono,
-    fontSize: 11,
+    fontSize: 13,
     opacity: 0.6,
     marginBottom: 8,
     letterSpacing: '0.05em',
@@ -1938,9 +1952,6 @@ const CountriesTab = ({ data, prev, sheets, salesData, loadingSales, expanded, s
           return (
             <div key={region} style={ctryStyles.regionBlock}>
               <div style={ctryStyles.regionHdr}>
-                <div style={{
-                  width: 3, height: 20, backgroundColor: T.region[region], marginRight: 12,
-                }} />
                 <span style={ctryStyles.regionName}>{region}</span>
                 <span style={ctryStyles.regionCount}>{items.length} 市場</span>
                 <span style={ctryStyles.regionTotal}>
@@ -1997,7 +2008,7 @@ const CountryRow = ({ country, rank, prev, expanded, onToggle, salesData, loadin
         <span
           title={prevRank ? `前期 ${prevRank}位 → 今期 ${rank}位` : ''}
           style={{
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 700,
             fontFamily: T.mono,
             color: prevRank && rankDiff !== 0
@@ -2011,9 +2022,8 @@ const CountryRow = ({ country, rank, prev, expanded, onToggle, salesData, loadin
             ? `${rankDiff > 0 ? '↑' : '↓'}${Math.abs(rankDiff)}`
             : '—'}
         </span>
-        <span style={ctryStyles.rowFlag}>{COUNTRY_FLAGS[country.country]}</span>
         <span style={{
-          width: 3, height: 18, backgroundColor: colorOf(country.country), marginRight: 6,
+          width: 10, height: 10, backgroundColor: colorOf(country.country), marginRight: 8, flexShrink: 0,
         }} />
         <span style={ctryStyles.rowName}>{country.country}</span>
         <span style={ctryStyles.rowValue}>
@@ -2031,7 +2041,7 @@ const CountryRow = ({ country, rank, prev, expanded, onToggle, salesData, loadin
       {expanded && (
         <div style={ctryStyles.expandBox}>
           <ExpenseBreakdown country={country} prev={prevC} />
-          {salesData && salesData.length > 0 && <SalesTable data={salesData} />}
+          {salesData && salesData.length > 0 && <SalesBars data={salesData} />}
           {loadingSales && !salesData && (
             <div style={{ padding: 16, fontSize: 12, color: T.muted, textAlign: 'center' }}>
               買物品目データを読み込み中...
@@ -2065,7 +2075,7 @@ const ExpenseBreakdown = ({ country, prev }) => {
             <div key={c.key} style={ctryStyles.breakdownCell}>
               <div style={ctryStyles.breakdownLabel}>
                 <span>{c.label}</span>
-                <span style={{ fontSize: 11, color: T.muted, fontFamily: T.mono }}>{pct.toFixed(0)}%</span>
+                <span style={{ fontSize: 13, color: T.muted, fontFamily: T.mono }}>{pct.toFixed(0)}%</span>
               </div>
               <div style={ctryStyles.breakdownValue}>
                 <span style={{
@@ -2075,7 +2085,7 @@ const ExpenseBreakdown = ({ country, prev }) => {
                   color: T.inkDark,
                   fontVariantNumeric: 'tabular-nums',
                 }}>{formatOku(val)}</span>
-                <span style={{ fontSize: 10, color: T.muted, marginLeft: 3 }}>億</span>
+                <span style={{ fontSize: 12, color: T.muted, marginLeft: 3 }}>億</span>
                 {chg && <span style={{ marginLeft: 8 }}><Delta change={chg} size="sm" /></span>}
               </div>
               <div style={{ marginTop: 6 }}>
@@ -2147,7 +2157,7 @@ const ctryStyles = {
   list: { },
   row: {
     display: 'grid',
-    gridTemplateColumns: '32px 32px 22px 6px 1fr auto 90px 20px',
+    gridTemplateColumns: '32px 32px 18px 1fr auto 90px 20px',
     alignItems: 'center',
     gap: 10,
     padding: '14px 12px',
@@ -2156,7 +2166,7 @@ const ctryStyles = {
   },
   rowRank: {
     fontFamily: T.mono,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 600,
     color: T.faint,
     fontVariantNumeric: 'tabular-nums',
@@ -2172,7 +2182,7 @@ const ctryStyles = {
     minWidth: 90,
   },
   rowArrow: {
-    fontSize: 10,
+    fontSize: 12,
     color: T.faint,
     transition: 'transform 0.2s',
     textAlign: 'center',
@@ -2183,11 +2193,11 @@ const ctryStyles = {
     borderTop: `1px solid ${T.lineSoft}`,
   },
   breakdownTitle: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 700,
     color: T.muted,
     letterSpacing: '0.1em',
-    textTransform: 'uppercase',
+    textTransform: 'none',
     marginBottom: 12,
   },
   breakdownGrid: {
@@ -2243,7 +2253,7 @@ const ctryStyles = {
     color: T.inkDark,
   },
   regionCount: {
-    fontSize: 11,
+    fontSize: 13,
     color: T.faint,
     marginLeft: 10,
   },
@@ -2259,20 +2269,20 @@ const ctryStyles = {
     textAlign: 'left',
     padding: '8px 10px',
     borderBottom: `2px solid ${T.line}`,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 700,
     color: T.muted,
-    textTransform: 'uppercase',
+    textTransform: 'none',
     letterSpacing: '0.05em',
   },
   thR: {
     textAlign: 'right',
     padding: '8px 10px',
     borderBottom: `2px solid ${T.line}`,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 700,
     color: T.muted,
-    textTransform: 'uppercase',
+    textTransform: 'none',
     letterSpacing: '0.05em',
   },
   td: {
@@ -2413,18 +2423,18 @@ const unitStyles = {
   select: { height: 36, padding: '0 12px', fontSize: 14, fontFamily: T.sans, color: T.ink, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 4, cursor: 'pointer' },
   grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 },
   groupTitle: { fontSize: 12, fontWeight: 700, color: T.muted, letterSpacing: '0.04em', marginBottom: 8 },
-  head: { display: 'grid', gridTemplateColumns: '1.3fr 1.1fr 1fr 0.9fr', gap: 10, fontSize: 10, color: T.faint, padding: '0 0 6px', borderBottom: `1px solid ${T.line}` },
+  head: { display: 'grid', gridTemplateColumns: '1.3fr 1.1fr 1fr 0.9fr', gap: 10, fontSize: 12, color: T.faint, padding: '0 0 6px', borderBottom: `1px solid ${T.line}` },
   row: { display: 'grid', gridTemplateColumns: '1.3fr 1.1fr 1fr 0.9fr', gap: 10, alignItems: 'center', padding: '9px 0', borderBottom: `1px solid ${T.lineSoft}` },
   item: { fontSize: 13, color: T.ink, lineHeight: 1.35 },
   rateCell: { display: 'flex', alignItems: 'center', gap: 6 },
   rateTrack: { flex: 1, height: 6, background: T.lineSoft, borderRadius: 3, overflow: 'hidden' },
   rateBar: { height: '100%', background: T.muted },
-  rateNum: { width: 32, fontSize: 11, color: T.muted, textAlign: 'right', fontFamily: T.mono },
+  rateNum: { width: 32, fontSize: 13, color: T.muted, textAlign: 'right', fontFamily: T.mono },
   unit: { fontSize: 14, fontWeight: 700, color: T.inkDark, textAlign: 'right', fontFamily: T.mono, fontVariantNumeric: 'tabular-nums' },
-  yen: { fontSize: 10, fontWeight: 400, color: T.muted, marginLeft: 2 },
-  sub: { display: 'flex', flexDirection: 'column', gap: 2, fontSize: 10, fontFamily: T.mono, textAlign: 'right' },
+  yen: { fontSize: 12, fontWeight: 400, color: T.muted, marginLeft: 2 },
+  sub: { display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12, fontFamily: T.mono, textAlign: 'right' },
   foot: { marginTop: 20, paddingTop: 14, borderTop: `1px solid ${T.line}`, display: 'flex', flexDirection: 'column', gap: 12 },
-  note: { fontSize: 11, color: T.muted, lineHeight: 1.7, margin: 0 },
+  note: { fontSize: 13, color: T.muted, lineHeight: 1.7, margin: 0 },
   cta: { alignSelf: 'flex-start', display: 'inline-block', padding: '10px 16px', fontSize: 13, fontWeight: 700, color: '#fff', background: T.inkDark, borderRadius: 4, textDecoration: 'none' },
 };
 
@@ -2485,7 +2495,7 @@ const ItemTeaser = ({ onOpen }) => {
 const teaserStyles = {
   grid: { display: 'grid', gridTemplateColumns: '1.1fr 1.3fr auto', gap: 28, alignItems: 'center' },
   kicker: { margin: 0, fontSize: 13, fontWeight: 700, color: T.inkDark, display: 'flex', alignItems: 'center', gap: 8 },
-  new: { fontSize: 9, fontWeight: 700, color: '#fff', backgroundColor: T.accent, padding: '2px 5px', borderRadius: 2, letterSpacing: '0.06em' },
+  new: { fontSize: 13, fontWeight: 700, color: '#fff', backgroundColor: T.accent, padding: '2px 5px', borderRadius: 2, letterSpacing: '0.06em' },
   lead: { margin: '8px 0 0', fontSize: 12, color: T.muted },
   num: { margin: '2px 0 0', fontSize: 36, fontWeight: 700, color: T.inkDark, fontFamily: T.mono, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' },
   unit: { marginLeft: 4, fontSize: 13, fontWeight: 400, color: T.muted, fontFamily: T.sans },
@@ -2494,9 +2504,9 @@ const teaserStyles = {
   chip: { width: 10, height: 10, borderRadius: 2, display: 'inline-block' },
   mk: { fontSize: 13, fontWeight: 700, color: T.ink },
   val: { fontSize: 13, fontWeight: 700, color: T.inkDark, fontFamily: T.mono, textAlign: 'right' },
-  share: { fontSize: 11, color: T.muted, fontFamily: T.mono, textAlign: 'right' },
+  share: { fontSize: 13, color: T.muted, fontFamily: T.mono, textAlign: 'right' },
   btn: { padding: '12px 18px', fontSize: 13, fontWeight: 700, color: '#fff', background: T.inkDark, border: 'none', borderRadius: 4, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: T.sans },
-  note: { margin: '14px 0 0', fontSize: 11, color: T.muted, lineHeight: 1.7 },
+  note: { margin: '14px 0 0', fontSize: 13, color: T.muted, lineHeight: 1.7 },
 };
 
 const ItemTab = ({ sheets }) => (
@@ -2678,15 +2688,15 @@ const itemStyles = {
   tLabel: { margin: 0, fontSize: 12, fontWeight: 700, color: T.muted },
   tNum: { margin: '2px 0 0', fontSize: 34, fontWeight: 700, color: T.inkDark, fontFamily: T.mono, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' },
   tUnit: { marginLeft: 4, fontSize: 13, fontWeight: 400, color: T.muted, fontFamily: T.sans },
-  formula: { margin: 0, fontSize: 11, color: T.muted, fontFamily: T.mono },
-  head: { display: 'flex', justifyContent: 'space-between', fontSize: 10, color: T.faint, padding: '8px 0 6px', borderBottom: `1px solid ${T.line}` },
+  formula: { margin: 0, fontSize: 13, color: T.muted, fontFamily: T.mono },
+  head: { display: 'flex', justifyContent: 'space-between', fontSize: 12, color: T.faint, padding: '8px 0 6px', borderBottom: `1px solid ${T.line}` },
   row: { display: 'grid', gridTemplateColumns: '96px 1fr 110px 72px', gap: 12, alignItems: 'center', padding: '9px 0', borderBottom: `1px solid ${T.lineSoft}` },
   name: { fontSize: 13, fontWeight: 700, color: T.ink },
   track: { height: 18, background: T.lineSoft },
   bar: { height: '100%' },
   val: { fontSize: 14, fontWeight: 700, color: T.inkDark, textAlign: 'right', fontFamily: T.mono, fontVariantNumeric: 'tabular-nums' },
-  share: { fontSize: 11, color: T.muted, textAlign: 'right', fontFamily: T.mono, lineHeight: 1.3 },
-  shareSub: { fontSize: 10, color: T.faint },
+  share: { fontSize: 13, color: T.muted, textAlign: 'right', fontFamily: T.mono, lineHeight: 1.3 },
+  shareSub: { fontSize: 12, color: T.faint },
   cmp: { display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 6, padding: '6px 4px', fontSize: 12, fontWeight: 700, color: T.inkDark, cursor: 'pointer', fontFamily: T.sans },
   cmpSub: { fontWeight: 400, color: T.muted },
   yoyBox: { margin: 0, fontSize: 13, color: T.muted, fontFamily: T.mono },
@@ -2774,7 +2784,7 @@ const CompositionTab = ({ data, prev, sheets }) => {
             >
               {s.share >= 6 && (
                 <>
-                  <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.85, letterSpacing: '0.02em' }}>{s.label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.85, letterSpacing: '0.02em' }}>{s.label}</span>
                   <span style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em', marginTop: 1 }}>
                     {s.share.toFixed(1)}%
                   </span>
@@ -2798,7 +2808,7 @@ const CompositionTab = ({ data, prev, sheets }) => {
                 }}>
                   {s.share.toFixed(1)}<span style={{ fontSize: 13, color: T.muted, marginLeft: 2 }}>%</span>
                 </div>
-                <div style={{ fontSize: 11, color: T.muted, marginTop: 2, fontFamily: T.mono }}>
+                <div style={{ fontSize: 13, color: T.muted, marginTop: 2, fontFamily: T.mono }}>
                   {formatNum(s.value, 0)}億円
                   {chg && <span style={{ marginLeft: 6 }}><Delta change={chg} size="sm" /></span>}
                 </div>
@@ -2834,7 +2844,7 @@ const CompositionTab = ({ data, prev, sheets }) => {
           {topStacks.map(s => (
             <div key={s.country} style={cmpStyles.stackRow} className="stack-row">
               <div style={cmpStyles.stackLabel}>
-                <span style={{ fontSize: 14 }}>{COUNTRY_FLAGS[s.country]}</span>
+                <span style={{ fontSize: 14 }}></span>
                 <span style={{ fontSize: 13, color: T.ink, fontWeight: 500 }}>{s.country}</span>
               </div>
               <div style={cmpStyles.stackBars}>
@@ -2871,7 +2881,7 @@ const StackSeg = ({ pct, amt, country, label, color }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: 10,
+        fontSize: 12,
         fontWeight: 700,
         color: '#fff',
         cursor: 'default',
@@ -2949,7 +2959,6 @@ const AnalysisTab = ({ data, prev, sheets }) => {
   const [sub, setSub] = useState('matrix');
   const subs = [
     { id: 'matrix', label: 'ポジショニング' },
-    { id: 'share', label: '市場シェア' },
     { id: 'growth', label: '増減分析' },
     { id: 'compare', label: '国別比較' },
   ];
@@ -2969,7 +2978,6 @@ const AnalysisTab = ({ data, prev, sheets }) => {
         ))}
       </div>
       {sub === 'matrix' && <MatrixSection data={data} prev={prev} sheets={sheets} />}
-      {sub === 'share' && <MarketShareSection data={data} sheets={sheets} />}
       {sub === 'growth' && <GrowthSection data={data} prev={prev} sheets={sheets} />}
       {sub === 'compare' && <CompareSection data={data} prev={prev} sheets={sheets} />}
     </div>
@@ -3017,7 +3025,7 @@ const MatrixSection = ({ data, prev, sheets }) => {
         const growth = pp?.total ? ((d.total - pp.total) / pp.total) * 100 : 0;
         return {
           country: d.country,
-          flag: COUNTRY_FLAGS[d.country],
+          flag: '',
           growth,
           perPerson: d.perPerson / 10000,
           total: d.total,
@@ -3041,20 +3049,20 @@ const MatrixSection = ({ data, prev, sheets }) => {
             <XAxis
               type="number"
               dataKey="growth"
-              tick={{ fontSize: 11, fill: T.muted, fontFamily: T.mono }}
+              tick={{ fontSize: 13, fill: T.muted, fontFamily: T.mono }}
               axisLine={{ stroke: T.line }}
               tickLine={false}
               tickFormatter={(v) => `${v}%`}
-              label={{ value: '成長率（前期比）', position: 'bottom', offset: 20, fontSize: 11, fill: T.muted }}
+              label={{ value: '成長率（前期比）', position: 'bottom', offset: 20, fontSize: 13, fill: T.muted }}
             />
             <YAxis
               type="number"
               dataKey="perPerson"
-              tick={{ fontSize: 11, fill: T.muted, fontFamily: T.mono }}
+              tick={{ fontSize: 13, fill: T.muted, fontFamily: T.mono }}
               axisLine={{ stroke: T.line }}
               tickLine={false}
               tickFormatter={(v) => `${v}万`}
-              label={{ value: '客単価（万円）', angle: -90, position: 'left', offset: 20, fontSize: 11, fill: T.muted }}
+              label={{ value: '客単価（万円）', angle: -90, position: 'left', offset: 20, fontSize: 13, fill: T.muted }}
             />
             <ZAxis dataKey="total" range={[80, 800]} />
             <Tooltip
@@ -3085,7 +3093,7 @@ const MatrixSection = ({ data, prev, sheets }) => {
             {[...chartData].sort((a, b) => b.total - a.total).slice(0, 12).map((d, i) => (
               <div key={d.country} style={mxStyles.listRow}>
                 <span style={{
-                  fontFamily: T.mono, fontSize: 10, color: T.faint, minWidth: 20,
+                  fontFamily: T.mono, fontSize: 12, color: T.faint, minWidth: 20,
                   fontVariantNumeric: 'tabular-nums',
                 }}>{String(i + 1).padStart(2, '0')}</span>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: colorOf(d.country), display: 'inline-block', flexShrink: 0 }} />
@@ -3107,8 +3115,8 @@ const MatrixSection = ({ data, prev, sheets }) => {
 
 const mxStyles = {
   listTitle: {
-    fontSize: 11, fontWeight: 700, color: T.muted,
-    letterSpacing: '0.1em', textTransform: 'uppercase',
+    fontSize: 13, fontWeight: 700, color: T.muted,
+    letterSpacing: '0.1em', textTransform: 'none',
     marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid ${T.line}`,
   },
   list: { display: 'flex', flexDirection: 'column', gap: 8 },
@@ -3135,7 +3143,7 @@ const MarketShareSection = ({ data, sheets }) => {
     const palette = [T.inkDark, T.accent, '#44403c', '#78716c', '#a8a29e', '#d6d3d1', T.lineSoft];
     const res = top6.map((c, i) => ({
       country: c.country, value: c.total, share: (c.total / tot) * 100,
-      flag: COUNTRY_FLAGS[c.country], color: colorOf(c.country),
+      flag: '', color: colorOf(c.country),
     }));
     if (othTot > 0) res.push({
       country: 'その他', value: othTot, share: (othTot / tot) * 100,
@@ -3177,7 +3185,7 @@ const MarketShareSection = ({ data, sheets }) => {
           })}
           <circle cx="50" cy="50" r="26" fill={T.surface} />
           {hovered !== null && (
-            <text x="50" y="48" textAnchor="middle" style={{ fontSize: 9, fontWeight: 700, fill: T.inkDark, fontFamily: T.sans }}>
+            <text x="50" y="48" textAnchor="middle" style={{ fontSize: 13, fontWeight: 700, fill: T.inkDark, fontFamily: T.sans }}>
               {share[hovered].share.toFixed(1)}%
             </text>
           )}
@@ -3421,7 +3429,7 @@ const CompareSection = ({ data, prev, sheets }) => {
         <div style={csStyles.hdrCell}></div>
         {all.map((d, i) => (
           <div key={i} style={csStyles.hdrCountry}>
-            <span style={{ fontSize: 22 }}>{COUNTRY_FLAGS[d.country]}</span>
+            <span style={{ fontSize: 22 }}></span>
             <span style={{
               fontFamily: T.sans, fontSize: 18, fontWeight: 700,
               color: T.inkDark,
@@ -3448,7 +3456,7 @@ const CompareSection = ({ data, prev, sheets }) => {
                       color: T.inkDark, fontVariantNumeric: 'tabular-nums',
                       letterSpacing: '-0.02em',
                     }}>{m.fmt(v)}</span>
-                    <span style={{ fontSize: 11, color: T.muted, marginLeft: 3 }}>{m.unit}</span>
+                    <span style={{ fontSize: 13, color: T.muted, marginLeft: 3 }}>{m.unit}</span>
                     {isMax && <span style={csStyles.winBadge}>TOP</span>}
                   </div>
                 );
@@ -3502,7 +3510,7 @@ const csStyles = {
     padding: '14px 0',
     fontSize: 13, fontWeight: 600, color: T.muted,
     borderBottom: `1px solid ${T.lineSoft}`,
-    textTransform: 'uppercase', letterSpacing: '0.05em',
+    textTransform: 'none', letterSpacing: '0.05em',
   },
   rowValue: {
     padding: '14px 12px',
@@ -3512,7 +3520,7 @@ const csStyles = {
   },
   winBadge: {
     marginLeft: 10,
-    fontSize: 10, fontWeight: 700,
+    fontSize: 12, fontWeight: 700,
     color: T.positive,
     padding: '2px 6px',
     border: `1px solid ${T.positive}`,
@@ -3657,7 +3665,7 @@ const cardStyles = {
     fontSize: 12,
     fontWeight: 600,
     color: T.accent,
-    textTransform: 'uppercase',
+    textTransform: 'none',
     letterSpacing: '0.2em',
     marginBottom: 16,
   },
@@ -3724,7 +3732,7 @@ const cardStyles = {
     fontSize: 12,
     fontWeight: 600,
     color: T.muted,
-    textTransform: 'uppercase',
+    textTransform: 'none',
     letterSpacing: '0.12em',
     paddingBottom: 12,
     borderBottom: `1px solid ${T.line}`,
@@ -3775,7 +3783,7 @@ const cardStyles = {
     borderTop: `1px solid ${T.line}`,
     display: 'flex',
     justifyContent: 'space-between',
-    fontSize: 11,
+    fontSize: 13,
     color: T.muted,
     letterSpacing: '0.04em',
   },
@@ -4068,7 +4076,7 @@ const appStyles = {
     fontSize: 12,
     color: T.muted,
     letterSpacing: '0.1em',
-    textTransform: 'uppercase',
+    textTransform: 'none',
   },
   footer: {
     maxWidth: 1200,
@@ -4077,7 +4085,7 @@ const appStyles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    fontSize: 11,
+    fontSize: 13,
     color: T.muted,
     borderTop: `1px solid ${T.line}`,
     letterSpacing: '0.02em',
@@ -4093,7 +4101,7 @@ const appStyles = {
     background: 'none',
     border: 'none',
     padding: '2px 0',
-    fontSize: 11,
+    fontSize: 13,
     color: T.ink,
     cursor: 'pointer',
     textDecoration: 'none',
@@ -4192,6 +4200,10 @@ sheet.textContent = `
 
   /* ===== MOBILE (600px and below) ===== */
   @media (max-width: 600px) {
+    .pie-box { height: 300px !important; }
+    .cb-row { grid-template-columns: 1fr auto !important; row-gap: 4px; }
+    .cb-row > div { grid-column: 1 / -1; grid-row: 2; }
+    .reg-grid { grid-template-columns: 1fr 1fr !important; }
     .unit-row { grid-template-columns: 1.5fr 0.55fr 1fr 0.85fr !important; gap: 6px !important; }
     .item-row { grid-template-columns: 64px 1fr 80px 58px !important; gap: 8px !important; }
     .unit-track { display: none !important; }
@@ -4213,7 +4225,7 @@ sheet.textContent = `
 
     /* Country row: compact */
     .country-row {
-      grid-template-columns: 28px 20px 4px 1fr auto !important;
+      grid-template-columns: 28px 20px 12px 1fr auto !important;
       gap: 8px !important;
       padding: 12px 8px !important;
     }
