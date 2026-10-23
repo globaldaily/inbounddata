@@ -2454,6 +2454,9 @@ const ItemTeaser = ({ onOpen }) => {
   const top = rows.filter(r => r.market !== UNIT_ALL && r.market !== 'その他' && r.est > 0).sort((a, b) => b.est - a.est).slice(0, 3);
   const oku = (v) => Math.round(v).toLocaleString('ja-JP');
   const label = p0.replace(/\s*（.*?）/g, '').replace(/\s+/g, '');
+  const pp = tab.prevOf?.[p0];
+  const pAll = pp ? tab.list.find(r => r.period === pp && r.item === ITEM_DEFAULT && r.market === UNIT_ALL) : null;
+  const yy = pAll && pAll.est > 0 ? (all.est / pAll.est - 1) * 100 : null;
   return (
     <Card style={{ borderTop: `3px solid ${T.inkDark}` }}>
       <div className="teaser-grid" style={teaserStyles.grid}>
@@ -2461,6 +2464,7 @@ const ItemTeaser = ({ onOpen }) => {
           <p style={teaserStyles.kicker}>品目別 推計消費額<span style={teaserStyles.new}>NEW</span></p>
           <p style={teaserStyles.lead}>{ITEM_DEFAULT}（{label}・全国籍）</p>
           <p style={teaserStyles.num}>{oku(all.est)}<span style={teaserStyles.unit}>億円</span></p>
+          {yy !== null && <p style={teaserStyles.yoy}>前年同期比 <b style={{ color: yy >= 0 ? T.positive : T.negative }}>{(yy > 0 ? '+' : yy < 0 ? '−' : '±') + Math.abs(yy).toFixed(1)}%</b></p>}
         </div>
         <div>
           {top.map(r => (
@@ -2485,6 +2489,7 @@ const teaserStyles = {
   lead: { margin: '8px 0 0', fontSize: 12, color: T.muted },
   num: { margin: '2px 0 0', fontSize: 36, fontWeight: 700, color: T.inkDark, fontFamily: T.mono, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' },
   unit: { marginLeft: 4, fontSize: 13, fontWeight: 400, color: T.muted, fontFamily: T.sans },
+  yoy: { margin: '2px 0 0', fontSize: 12, color: T.muted, fontFamily: T.mono },
   row: { display: 'grid', gridTemplateColumns: '10px 1fr auto 52px', gap: 10, alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${T.lineSoft}` },
   chip: { width: 10, height: 10, borderRadius: 2, display: 'inline-block' },
   mk: { fontSize: 13, fontWeight: 700, color: T.ink },
@@ -2518,14 +2523,20 @@ const loadItemSheet = () => {
       if (!rows?.length) { itemSheetPromise = null; return null; }
       const meta = rows[0] || [];
       const mi = (k, d) => { const i = meta.indexOf(k); return i >= 0 ? meta[i + 1] : d; };
-      const end = meta.indexOf('minN');
+      const iH = meta.indexOf('hidden'), iN = meta.indexOf('minN');
+      const end = iH > 0 ? iH : iN;
       const periods = meta.slice(1, end > 0 ? end : undefined).map(String).filter(Boolean);
-      const list = rows.slice(2).filter(r => r[0] && r[1] && r[2]).map(r => ({
+      // 前年同期の対応（2行目「prev」：当期=>前年同期）
+      const prevOf = {};
+      const pr = rows.find(r => r[0] === 'prev') || [];
+      pr.slice(1).forEach(c => { const [a, b] = String(c || '').split('=>'); if (a && b) prevOf[a] = b; });
+      const hIdx = rows.findIndex(r => r[0] === '期間');
+      const list = rows.slice(hIdx >= 0 ? hIdx + 1 : 2).filter(r => r[0] && r[1] && r[2]).map(r => ({
         period: String(r[0]), market: String(r[1]), item: String(r[2]), visitors: parseNumber(r[3]),
         rate: parseFloat(r[4]), unit: parseNumber(r[5]), n: r[6] === '' || r[6] == null ? null : parseNumber(r[6]),
         est: parseFloat(String(r[7]).replace(/,/g, '')), low: String(r[8] || '') === '1',
       }));
-      return { periods, list, minN: Number(mi('minN', 30)), show: Number(mi('show', 5)) };
+      return { periods, prevOf, list, minN: Number(mi('minN', 30)), show: Number(mi('show', 5)) };
     }).catch(() => { itemSheetPromise = null; return null; });
   }
   return itemSheetPromise;
@@ -2535,6 +2546,7 @@ const ItemEstimateBlock = ({ sheetsPeriod }) => {
   const [tab, setTab] = useState(null);
   const [period, setPeriod] = useState(null);
   const [item, setItem] = useState(ITEM_DEFAULT);
+  const [cmp, setCmp] = useState(true);   // 前年同期と比べる（前年同期のある期間だけ）
 
   useEffect(() => {
     let cancel = false;
@@ -2559,6 +2571,16 @@ const ItemEstimateBlock = ({ sheetsPeriod }) => {
   const max = top[0]?.est || 1;
   const isLow = (r) => r.low || (r.n != null && r.n < tab.minN);
   const cum = /累計/.test(period);
+  // 前年同期
+  const prevP = tab.prevOf?.[period];
+  const showCmp = !!prevP && cmp;
+  const pRows = prevP ? tab.list.filter(r => r.period === prevP && r.item === cur) : [];
+  const pAll = pRows.find(r => r.market === UNIT_ALL);
+  const pOf = (m) => pRows.find(r => r.market === m);
+  const pMax = Math.max(max, ...top.map(r => pOf(r.market)?.est || 0));
+  const yoy = (a, b) => (a && b && a.est > 0 && b.est > 0 ? (a.est / b.est - 1) * 100 : null);
+  const sg = (v) => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(1) + '%';
+  const shortP = (p) => p.replace(/\s*（.*?）/g, '').replace(/\s+/g, '');
   const oku = (v) => v >= 100 ? Math.round(v).toLocaleString('ja-JP') : v.toFixed(1);
 
   return (
@@ -2577,6 +2599,12 @@ const ItemEstimateBlock = ({ sheetsPeriod }) => {
         {tab.periods.map(p => (
           <button key={p} type="button" onClick={() => setPeriod(p)} style={{ ...itemStyles.pBtn, ...(p === period ? itemStyles.pOn : {}) }}>{p}</button>
         ))}
+        {prevP && (
+          <label style={itemStyles.cmp}>
+            <input type="checkbox" checked={cmp} onChange={e => setCmp(e.target.checked)} style={{ margin: 0 }} />
+            前年同期と比べる<span style={itemStyles.cmpSub}>（{shortP(prevP)}）</span>
+          </label>
+        )}
       </div>
       {all && (
         <div className="item-total" style={itemStyles.total}>
@@ -2589,20 +2617,38 @@ const ItemEstimateBlock = ({ sheetsPeriod }) => {
               {all.visitors.toLocaleString('ja-JP')}人 × 購入率 {all.rate.toFixed(1)}% × 購入者単価 {Math.round(all.unit).toLocaleString('ja-JP')}円
             </p>
           )}
-          {cum && <p style={itemStyles.formula}>各四半期の推計を合算（訪日客 {all.visitors.toLocaleString('ja-JP')}人）</p>}
+          {cum && !showCmp && <p style={itemStyles.formula}>各四半期の推計を合算（訪日客 {all.visitors.toLocaleString('ja-JP')}人）</p>}
+          {showCmp && pAll && (
+            <p style={itemStyles.yoyBox}>
+              前年同期 {oku(pAll.est)}億円 →{' '}
+              <b style={{ color: yoy(all, pAll) >= 0 ? T.positive : T.negative }}>{sg(yoy(all, pAll))}</b>
+            </p>
+          )}
         </div>
       )}
-      <div style={itemStyles.head}><span>国・地域（推計消費額の大きい順・上位{tab.show}）</span><span>全体に占める割合</span></div>
+      <div style={itemStyles.head}>
+        <span>国・地域（推計消費額の大きい順・上位{tab.show}）{showCmp && <span style={itemStyles.legend}><i style={{ ...itemStyles.lgBar, background: '#c9d0db' }} />前年同期</span>}</span>
+        <span>{showCmp ? '前年同期比／割合' : '全体に占める割合'}</span>
+      </div>
       {top.map(r => {
         const low = isLow(r), col = colorOf(r.market);
         return (
           <div key={r.market} className="item-row" style={itemStyles.row}>
             <span style={itemStyles.name}>{r.market}</span>
             <div style={itemStyles.track}>
-              <div style={{ ...itemStyles.bar, width: `${(r.est / max) * 100}%`, background: low ? `repeating-linear-gradient(45deg, ${col}, ${col} 4px, #fff 4px, #fff 7px)` : col }} />
+              <div style={{ ...itemStyles.bar, height: showCmp ? '62%' : '100%', width: `${(r.est / (showCmp ? pMax : max)) * 100}%`, background: low ? `repeating-linear-gradient(45deg, ${col}, ${col} 4px, #fff 4px, #fff 7px)` : col }} />
+              {showCmp && pOf(r.market) && <div style={{ ...itemStyles.pBar, width: `${(pOf(r.market).est / pMax) * 100}%` }} />}
             </div>
             <span style={itemStyles.val}>{oku(r.est)}<span style={unitStyles.yen}>億円{low ? '※' : ''}</span></span>
-            <span style={itemStyles.share}>{all ? (r.est / all.est * 100).toFixed(1) + '%' : ''}</span>
+            {showCmp ? (() => {
+              const p = pOf(r.market), y = yoy(r, p), pl = p && isLow(p);
+              return (
+                <span style={itemStyles.share}>
+                  {y === null ? '—' : <b style={{ color: (low || pl) ? T.muted : (y >= 0 ? T.positive : T.negative) }}>{sg(y)}{(low || pl) ? '※' : ''}</b>}
+                  <br /><span style={itemStyles.shareSub}>{p && pAll ? (p.est / pAll.est * 100).toFixed(0) + '→' : ''}{all ? (r.est / all.est * 100).toFixed(0) + '%' : ''}</span>
+                </span>
+              );
+            })() : <span style={itemStyles.share}>{all ? (r.est / all.est * 100).toFixed(1) + '%' : ''}</span>}
           </div>
         );
       })}
@@ -2611,6 +2657,7 @@ const ItemEstimateBlock = ({ sheetsPeriod }) => {
           ※推計方法：推計消費額＝訪日客数×購入率×購入者単価。購入者単価は「買った人」の平均額のため、購入率を掛けて訪日客全体の消費額に換算しています。
           「化粧品・香水」など一部は複数品目の合算費目で、単独品目の値は公表されていません。斜線・※は購入者{tab.minN}人未満を含む参考値。
           {cum ? '累計は各四半期の推計の合計です。' : ''}
+          {showCmp ? `前年同期（${prevP}）と比較。割合は全国籍に占める割合（前年同期→当期）。` : ''}
         </p>
         <p style={unitStyles.note}>
           出典：観光庁「インバウンド消費動向調査」集計表 表2-1（購入率・購入者単価）、調査概要 図表4（一般客の訪日客数。クルーズ客を除く）をもとに当社算出。四捨五入のため合計が一致しない場合があります。
@@ -2633,12 +2680,19 @@ const itemStyles = {
   tUnit: { marginLeft: 4, fontSize: 13, fontWeight: 400, color: T.muted, fontFamily: T.sans },
   formula: { margin: 0, fontSize: 11, color: T.muted, fontFamily: T.mono },
   head: { display: 'flex', justifyContent: 'space-between', fontSize: 10, color: T.faint, padding: '8px 0 6px', borderBottom: `1px solid ${T.line}` },
-  row: { display: 'grid', gridTemplateColumns: '96px 1fr 110px 56px', gap: 12, alignItems: 'center', padding: '9px 0', borderBottom: `1px solid ${T.lineSoft}` },
+  row: { display: 'grid', gridTemplateColumns: '96px 1fr 110px 72px', gap: 12, alignItems: 'center', padding: '9px 0', borderBottom: `1px solid ${T.lineSoft}` },
   name: { fontSize: 13, fontWeight: 700, color: T.ink },
-  track: { height: 14, background: T.lineSoft },
+  track: { height: 18, background: T.lineSoft },
   bar: { height: '100%' },
   val: { fontSize: 14, fontWeight: 700, color: T.inkDark, textAlign: 'right', fontFamily: T.mono, fontVariantNumeric: 'tabular-nums' },
-  share: { fontSize: 11, color: T.muted, textAlign: 'right', fontFamily: T.mono },
+  share: { fontSize: 11, color: T.muted, textAlign: 'right', fontFamily: T.mono, lineHeight: 1.3 },
+  shareSub: { fontSize: 10, color: T.faint },
+  cmp: { display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 6, padding: '6px 4px', fontSize: 12, fontWeight: 700, color: T.inkDark, cursor: 'pointer', fontFamily: T.sans },
+  cmpSub: { fontWeight: 400, color: T.muted },
+  yoyBox: { margin: 0, fontSize: 13, color: T.muted, fontFamily: T.mono },
+  pBar: { height: '30%', marginTop: 2, background: '#c9d0db' },
+  legend: { marginLeft: 12, display: 'inline-flex', alignItems: 'center', gap: 4 },
+  lgBar: { display: 'inline-block', width: 14, height: 4 },
 };
 
 const CompositionTab = ({ data, prev, sheets }) => {
@@ -4139,7 +4193,7 @@ sheet.textContent = `
   /* ===== MOBILE (600px and below) ===== */
   @media (max-width: 600px) {
     .unit-row { grid-template-columns: 1.5fr 0.55fr 1fr 0.85fr !important; gap: 6px !important; }
-    .item-row { grid-template-columns: 72px 1fr 86px 44px !important; gap: 8px !important; }
+    .item-row { grid-template-columns: 64px 1fr 80px 58px !important; gap: 8px !important; }
     .unit-track { display: none !important; }
     .hero-inner {
       padding: 28px 16px 24px !important;
