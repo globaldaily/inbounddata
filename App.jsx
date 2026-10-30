@@ -26,7 +26,7 @@ const T = {
   line: '#e7e5e4',
   lineSoft: '#f5f5f4',
   accent: '#b91c1c',      // brand red
-  positive: '#166534',    // muted green
+  positive: '#1c1917',    // 増加は黒（訪日客数ダッシュボードと同じ：減少だけ赤）
   negative: '#b91c1c',    // red
   // Region palette — neutral gray scale (color carries no judgement, only grouping)
   region: {
@@ -45,7 +45,7 @@ const T = {
     other:         '#78716c',  // neutral stone
   },
   sans: "'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif",
-  mono: "'JetBrains Mono', 'SF Mono', ui-monospace, monospace",
+  mono: "'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif",  // 数字も本文と同じ書体にそろえる
 };
 
 // ============================================================
@@ -366,8 +366,8 @@ const useIframeHeight = (rootRef, ...deps) => {
 const Delta = ({ change, size = 'md' }) => {
   if (!change) return <span style={{ color: T.faint, fontSize: 12 }}>—</span>;
   const color = change.positive ? T.positive : T.negative;
-  const sign = change.positive ? '+' : '';
-  const fs = size === 'sm' ? 11 : size === 'lg' ? 14 : 12;
+  const sign = change.positive ? '+' : '−';
+  const fs = size === 'sm' ? 13 : size === 'lg' ? 16 : 14;
   return (
     <span style={{
       color,
@@ -377,7 +377,7 @@ const Delta = ({ change, size = 'md' }) => {
       fontVariantNumeric: 'tabular-nums',
       letterSpacing: '-0.01em',
     }}>
-      {sign}{change.value.toFixed(1)}%
+      {sign}{Math.abs(change.value).toFixed(1)}%
     </span>
   );
 };
@@ -495,28 +495,111 @@ const Card = ({ children, style }) => (
 const HeroStrip = ({ sheets, kpi, loading }) => {
   if (!sheets) return null;
   const { period, periodLabel, prevLabel } = sheets;
+  const pct = (c) => (c ? <b style={{ fontSize: '1.1em', color: c.value < 0 ? T.negative : T.inkDark, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{c.value >= 0 ? '+' : '−'}{Math.abs(c.value).toFixed(1)}%</b> : null);
+  const big = kpi && !loading ? (kpi.total >= 10000 ? { v: (kpi.total / 10000).toFixed(2), u: '兆円' } : { v: formatNum(kpi.total, 0), u: '億円' }) : { v: '—', u: '' };
+  const hl = period.type === 'quarter' ? `${String(period.year).slice(2)}/Q${period.q}` : null;
   return (
-    <div style={heroStyles.wrap}>
-      <div style={heroStyles.inner} className="hero-inner">
-        {/* LEFT: period marker */}
-        <div style={heroStyles.left}>
-          <div style={heroStyles.kicker}>訪日外国人消費動向</div>
-          <div style={heroStyles.periodRow}>
-            <span style={heroStyles.periodMain}>{periodLabel}</span>
-            <span style={heroStyles.periodBadge}>{period.badge}</span>
+    <div style={{ background: '#fff', borderBottom: `1px solid ${T.line}` }}>
+      <div className="sp-hero" style={{ maxWidth: 1200, margin: '0 auto', padding: '36px 24px 28px', display: 'grid', gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 7fr)', columnGap: 48, alignItems: 'start' }}>
+        <div>
+          <p style={{ fontSize: 16, fontWeight: 700, color: T.inkDark, margin: 0 }}>
+            {periodLabel}の訪日外国人消費額<span style={{ fontWeight: 400, color: T.muted, marginLeft: 8 }}>{period.badge}</span>
+          </p>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 6 }}>
+            <span style={{ fontSize: 72, fontWeight: 700, lineHeight: 1.05, color: T.inkDark, letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums' }}>{big.v}</span>
+            <span style={{ fontSize: 22, color: T.ink }}>{big.u}</span>
           </div>
-          <div style={heroStyles.sub}>vs {prevLabel}</div>
-          <ReleaseLine period={period} />
+          {kpi && !loading && (
+            <div style={{ fontSize: 17, lineHeight: 2, color: T.ink, marginTop: 12 }}>
+              <div>前年同期比 {pct(kpi.totalChg)}<span style={{ fontSize: 15, color: T.muted, marginLeft: 6 }}>（{prevLabel}）</span></div>
+              <div>訪日客数 <b>{formatNum(kpi.visitors, 1)}</b>万人 {pct(kpi.visitorsChg)}</div>
+              <div>1人当たり <b>{formatNum(kpi.perPerson, 1)}</b>万円 {pct(kpi.perPersonChg)}</div>
+              <div>買物の割合 <b>{formatNum(kpi.shopRatio, 1)}</b>%
+                {kpi.shopRatioChg && <span style={{ fontSize: 15, color: T.muted, marginLeft: 6 }}>（前年同期から{kpi.shopRatioChg.value >= 0 ? '+' : '−'}{Math.abs(kpi.shopRatioChg.value).toFixed(1)}pt）</span>}
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* RIGHT: 4 KPI cells */}
-        <div style={heroStyles.kpiGrid} className="hero-kpi-grid">
-          <KpiCell label="総消費額" value={loading || !kpi ? '—' : formatOku(kpi.total, 0)} unit={kpi?.total >= 10000 ? '円' : '億円'} change={kpi?.totalChg} loading={loading} />
-          <KpiCell label="訪日客数" value={loading || !kpi ? '—' : formatNum(kpi.visitors, 1)} unit="万人" change={kpi?.visitorsChg} loading={loading} />
-          <KpiCell label="客単価" value={loading || !kpi ? '—' : formatNum(kpi.perPerson, 1)} unit="万円" change={kpi?.perPersonChg} loading={loading} />
-          <KpiCell label="買物比率" value={loading || !kpi ? '—' : formatNum(kpi.shopRatio, 1)} unit="%" change={kpi?.shopRatioChg} loading={loading} />
-        </div>
+        <QuarterBars data={TREND_DATA} highlight={hl} />
       </div>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 20px' }}>
+        <ReleaseLine period={period} />
+      </div>
+    </div>
+  );
+};
+
+// 四半期別：同じ四半期を年ごとに並べる（季節の影響をそろえて比べる）
+const QuarterBars = ({ data, highlight }) => {
+  const [metric, setMetric] = useState('total');
+  const [W, setW] = useState(640);
+  const box = useRef(null);
+  useEffect(() => {
+    if (!box.current || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([e]) => setW(Math.max(280, Math.round(e.contentRect.width))));
+    ro.observe(box.current); setW(Math.max(280, Math.round(box.current.getBoundingClientRect().width)));
+    return () => ro.disconnect();
+  }, []);
+  const years = [...new Set(data.map(d => d.label.split('/')[0]))].sort();
+  const get = (y, q) => data.find(d => d.label === `${y}/Q${q}`);
+  const shade = (i) => ['#d6d3d1', '#a8a29e', '#78716c', '#57534e', '#0c0a09'].slice(-years.length)[i];
+  const val = (d) => (d ? d[metric] : 0);
+  const max = Math.max(...data.map(d => d[metric] || 0));
+  const top = metric === 'total' ? Math.ceil(max / 5000) * 5000 : Math.ceil(max / 5) * 5;
+  const step = metric === 'total' ? 5000 : 5;
+  const sp = W < 480, H = sp ? 230 : 290, pl = 44, pr = 4, pt = 54, pb = 28;
+  const y = v => pt + (H - pt - pb) * (1 - v / top);
+  const gw = (W - pl - pr) / 4, bw = Math.min(26, (gw - 16) / years.length);
+  const hy = highlight?.split('/')[0], hq = highlight ? Number(highlight.split('Q')[1]) : null;
+  const hd = highlight ? get(hy, hq) : null, hp = highlight ? get(String(Number(hy) - 1).padStart(2, '0'), hq) : null;
+  const fmt = (v) => metric === 'total' ? (v >= 10000 ? `${(v / 10000).toFixed(2)}兆円` : `${formatNum(v)}億円`) : `${v.toFixed(1)}万円`;
+  const btn = (k, l) => (
+    <button key={k} onClick={() => setMetric(k)} style={{ border: 'none', background: 'none', padding: '2px 0', marginLeft: 16, cursor: 'pointer', fontFamily: T.sans, fontSize: 14,
+      fontWeight: metric === k ? 700 : 400, color: metric === k ? T.inkDark : T.muted, borderBottom: metric === k ? `2px solid ${T.inkDark}` : '2px solid transparent' }}>{l}</button>
+  );
+  return (
+    <div ref={box} style={{ minWidth: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 6 }}>
+        <p style={{ fontSize: 16, fontWeight: 700, color: T.inkDark, margin: 0 }}>四半期ごとの推移</p>
+        <div>{btn('total', '消費額')}{btn('perPerson', '1人当たり')}</div>
+      </div>
+      <div style={{ fontSize: 13, color: T.ink, margin: '6px 0 0', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        {years.map((yy, i) => <span key={yy}><i style={{ display: 'inline-block', width: 11, height: 11, background: shade(i), marginRight: 5, verticalAlign: -1 }} />20{yy}年</span>)}
+      </div>
+      <svg width={W} height={H} style={{ display: 'block', maxWidth: '100%', marginTop: 4 }}>
+        {Array.from({ length: top / step + 1 }, (_, i) => i * step).map(t => (
+          <g key={t}>
+            <line x1={pl} x2={W - pr} y1={y(t)} y2={y(t)} stroke={t === 0 ? T.inkDark : T.line} />
+            <text x={pl - 6} y={y(t) + 4} textAnchor="end" fontSize="12" fill={T.muted}>{metric === 'total' ? (t ? `${t / 10000}兆` : '0') : t}</text>
+          </g>
+        ))}
+        {[1, 2, 3, 4].map(q => {
+          const x0 = pl + gw * (q - 1) + (gw - bw * years.length) / 2;
+          const on = q === hq;
+          return (
+            <g key={q}>
+              {on && <rect x={pl + gw * (q - 1) + 2} y={pt - 6} width={gw - 4} height={H - pt - pb + 6} fill="#f2f1ef" />}
+              {years.map((yy, i) => {
+                const d = get(yy, q); if (!d) return null;
+                const v = val(d);
+                return <rect key={yy} x={x0 + bw * i} y={y(v)} width={bw - 2} height={y(0) - y(v)} fill={shade(i)}><title>{`20${yy}年 Q${q}  ${fmt(v)}`}</title></rect>;
+              })}
+              <text x={pl + gw * (q - 0.5)} y={H - 9} textAnchor="middle" fontSize="13" fontWeight={on ? 700 : 400} fill={on ? T.inkDark : T.muted}>{['1-3月', '4-6月', '7-9月', '10-12月'][q - 1]}</text>
+            </g>
+          );
+        })}
+        {hd && (() => {
+          const cx = pl + gw * (hq - 0.5);
+          const tx = Math.min(Math.max(cx, pl + 80), W - pr - 80);
+          const ch = hp && val(hp) ? (val(hd) - val(hp)) / val(hp) * 100 : null;
+          return (
+            <g>
+              <text x={tx} y={16} textAnchor="middle" fontSize="15" fontWeight="700" fill={T.inkDark}>20{hy}年 {fmt(val(hd))}</text>
+              {ch != null && <text x={tx} y={34} textAnchor="middle" fontSize="12.5" fill={T.ink}>前年同期 {fmt(val(hp))}（{ch >= 0 ? '+' : '−'}{Math.abs(ch).toFixed(1)}%）</text>}
+            </g>
+          );
+        })()}
+      </svg>
     </div>
   );
 };
@@ -602,7 +685,7 @@ const heroStyles = {
   release: {
     fontSize: 13,
     lineHeight: 1.7,
-    opacity: 0.7,
+    color: '#57534e',
     marginTop: 6,
     letterSpacing: '0.02em',
   },
@@ -612,9 +695,8 @@ const heroStyles = {
     padding: '0 6px',
     fontSize: 12,
     fontWeight: 700,
-    border: '1px solid rgba(255,255,255,0.5)',
+    border: '1px solid #a8a29e',
     borderRadius: 2,
-    opacity: 1,
   },
   kpiGrid: {
     display: 'grid',
@@ -662,40 +744,27 @@ const StickyNav = ({ period, setPeriod, activeTab, setActiveTab }) => {
   ];
   return (
     <div style={navStyles.wrap}>
-      <div style={navStyles.inner} className="nav-inner">
-        <div style={navStyles.periods} className="nav-periods">
-          {PERIODS.map(p => (
-            <button
-              key={p.key}
-              onClick={() => setPeriod(p.key)}
-              style={{
-                ...navStyles.periodBtn,
-                ...(period === p.key ? navStyles.periodBtnActive : {}),
-              }}
-            >
-              <span style={navStyles.periodBtnLabel}>{p.label}</span>
-              {p.type === 'quarter' && (
-                <span style={{
-                  ...navStyles.periodBtnBadge,
-                  backgroundColor: period === p.key ? T.accent : 'transparent',
-                  color: period === p.key ? '#fff' : T.accent,
-                  border: `1px solid ${T.accent}`,
-                }}>Q</span>
-              )}
+      {/* 1段目：タブ（見出しのインデックス型。選んだタブは下の面とつながる） */}
+      <div style={navStyles.tabRow} className="nav-tabrow" role="tablist" aria-label="表示する内容">
+        {tabs.map(t => {
+          const on = activeTab === t.id;
+          return (
+            <button key={t.id} type="button" role="tab" aria-selected={on} onClick={() => setActiveTab(t.id)}
+              className="idx-tab" style={{ ...navStyles.idxTab, ...(on ? navStyles.idxTabOn : {}) }}>
+              {t.label}{t.isNew && <span style={navStyles.newBadge}>NEW</span>}
             </button>
-          ))}
-        </div>
-        <div style={navStyles.tabs} className="nav-tabs">
-          {tabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              style={{
-                ...navStyles.tab,
-                ...(t.isNew ? navStyles.tabNew : {}),
-                ...(activeTab === t.id ? navStyles.tabActive : {}),
-              }}
-            >{t.label}{t.isNew && <span style={navStyles.newBadge}>NEW</span>}</button>
+          );
+        })}
+      </div>
+      {/* 2段目：期間（タブとは別の「絞り込み」であることがわかるよう、ラベル付きで面の中に置く） */}
+      <div style={navStyles.periodRow} className="nav-periodrow">
+        <span style={navStyles.periodLabel}>期間</span>
+        <div style={navStyles.periods} className="nav-periods" role="radiogroup" aria-label="期間">
+          {PERIODS.map(p => (
+            <button key={p.key} type="button" role="radio" aria-checked={period === p.key} onClick={() => setPeriod(p.key)}
+              style={{ ...navStyles.periodBtn, ...(period === p.key ? navStyles.periodBtnActive : {}) }}>
+              {p.label}
+            </button>
           ))}
         </div>
       </div>
@@ -709,9 +778,15 @@ const navStyles = {
     top: 0,
     zIndex: 50,
     backgroundColor: T.bg,
-    borderBottom: `1px solid ${T.line}`,
-    boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+    maxWidth: 1200,
+    margin: '0 auto',
+    padding: '14px 24px 0',
   },
+  tabRow: { display: 'flex', gap: 4, borderBottom: '1px solid #1a1a1a', overflowX: 'auto', scrollbarWidth: 'none' },
+  idxTab: { flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: -1, padding: '11px 20px 10px', border: '1px solid #cfcfcf', borderBottom: '1px solid #1a1a1a', borderRadius: '3px 3px 0 0', background: '#e9e8e4', fontFamily: T.sans, fontSize: 15, color: '#333', cursor: 'pointer', whiteSpace: 'nowrap' },
+  idxTabOn: { position: 'relative', zIndex: 1, paddingTop: 9, borderColor: '#1a1a1a', borderTop: '4px solid #1a1a1a', borderBottom: '1px solid #fff', background: '#fff', color: '#1a1a1a', fontWeight: 700 },
+  periodRow: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '12px 18px', background: '#fff', border: '1px solid #1a1a1a', borderTop: 0 },
+  periodLabel: { flex: 'none', fontSize: 14, fontWeight: 700, color: '#1a1a1a', whiteSpace: 'nowrap' },
   inner: {
     maxWidth: 1200,
     margin: '0 auto',
@@ -722,33 +797,9 @@ const navStyles = {
     gap: 24,
     flexWrap: 'wrap',
   },
-  periods: {
-    display: 'flex',
-    gap: 4,
-    padding: 3,
-    backgroundColor: '#fff',
-    border: `1px solid ${T.line}`,
-    borderRadius: 4,
-  },
-  periodBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    padding: '7px 14px',
-    fontSize: 13,
-    fontWeight: 600,
-    color: T.muted,
-    backgroundColor: 'transparent',
-    border: 'none',
-    borderRadius: 3,
-    cursor: 'pointer',
-    transition: 'all 0.15s',
-    fontFamily: T.sans,
-  },
-  periodBtnActive: {
-    backgroundColor: T.inkDark,
-    color: '#fff',
-  },
+  periods: { display: 'flex', gap: 6, flexWrap: 'wrap' },
+  periodBtn: { padding: '7px 14px', border: '1px solid #cfcfcf', borderRadius: 2, background: '#fff', fontFamily: T.sans, fontSize: 14, color: '#333', cursor: 'pointer', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' },
+  periodBtnActive: { borderColor: '#1a1a1a', background: '#1a1a1a', color: '#fff', fontWeight: 700 },
   periodBtnLabel: {
     fontVariantNumeric: 'tabular-nums',
   },
@@ -795,12 +846,10 @@ const navStyles = {
     whiteSpace: 'nowrap',
   },
   newBadge: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 700,
-    color: '#fff',
-    backgroundColor: T.accent,
-    padding: '2px 5px',
-    borderRadius: 2,
+    color: T.accent,
+    padding: 0,
     letterSpacing: '0.06em',
     lineHeight: 1.2,
   },
@@ -1451,25 +1500,6 @@ const ConsumptionPieSection = ({ data, prev, sheets }) => {
         unit="億円"
         title="国別 消費額構成"
         subtitle={`${periodLabel} 対 ${prevLabel} 同期比較`}
-        aside={
-          totalPrev > 0 && (
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 12, color: T.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'none' }}>
-                前年同期比
-              </div>
-              <div style={{
-                fontSize: 20,
-                fontWeight: 700,
-                color: chgPct >= 0 ? T.positive : T.negative,
-                fontVariantNumeric: 'tabular-nums',
-                letterSpacing: '-0.02em',
-                marginTop: 2,
-              }}>
-                {chgPct >= 0 ? '+' : ''}{chgPct.toFixed(1)}%
-              </div>
-            </div>
-          )
-        }
       />
       <div style={{
         display: 'grid',
@@ -1530,21 +1560,8 @@ const OverviewTab = ({ data, prev, sheets, onOpenItem }) => {
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
-      {/* HIGHLIGHTS - editorial summary at top */}
-      <HighlightsSection data={data} prev={prev} sheets={sheets} />
-
       {/* 品目別 推計消費額のカード（押すと「品目別」タブへ） */}
       <ItemTeaser onOpen={onOpenItem} />
-
-      {/* TREND CHART - Full width */}
-      <Card>
-        <SectionTitle
-          unit="億円・万円"
-          title="四半期別 推移"
-          subtitle="2023年 1-3月期 〜 最新四半期"
-        />
-        <TrendChart data={TREND_DATA} highlightLabel={sheets?.period.type === 'quarter' ? `${String(sheets.period.year).slice(2)}/Q${sheets.period.q}` : null} />
-      </Card>
 
       {/* COUNTRY BREAKDOWN PIE - current vs prev year */}
       <ConsumptionPieSection data={data} prev={prev} sheets={sheets} />
@@ -2495,7 +2512,7 @@ const ItemTeaser = ({ onOpen }) => {
 const teaserStyles = {
   grid: { display: 'grid', gridTemplateColumns: '1.1fr 1.3fr auto', gap: 28, alignItems: 'center' },
   kicker: { margin: 0, fontSize: 13, fontWeight: 700, color: T.inkDark, display: 'flex', alignItems: 'center', gap: 8 },
-  new: { fontSize: 13, fontWeight: 700, color: '#fff', backgroundColor: T.accent, padding: '2px 5px', borderRadius: 2, letterSpacing: '0.06em' },
+  new: { fontSize: 12, fontWeight: 700, color: T.accent, marginLeft: 8, letterSpacing: '0.06em' },
   lead: { margin: '8px 0 0', fontSize: 12, color: T.muted },
   num: { margin: '2px 0 0', fontSize: 36, fontWeight: 700, color: T.inkDark, fontFamily: T.mono, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' },
   unit: { marginLeft: 4, fontSize: 13, fontWeight: 400, color: T.muted, fontFamily: T.sans },
@@ -4128,11 +4145,15 @@ sheet.textContent = `
   ::-webkit-scrollbar-thumb:hover { background: ${T.faint}; }
 
   /* 図表番号（タブごとに 図1, 図2…） */
+  .idx-tab:focus { outline: none; }
+  .idx-tab:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; }
+  .idx-tab:not([aria-selected="true"]):hover { background: #dedcd7 !important; color: #1a1a1a !important; }
   .fig-scope { counter-reset: fig; }
   .fig-num::before { counter-increment: fig; content: "図" counter(fig); }
 
   /* ===== TABLET (900px and below) ===== */
   @media (max-width: 900px) {
+    .sp-hero { grid-template-columns: 1fr !important; row-gap: 24px; }
     .unit-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
     /* Hero: stack left + right */
     .hero-inner {
@@ -4171,6 +4192,10 @@ sheet.textContent = `
       overflow-x: auto;
     }
     .nav-tabs button { padding: 10px 10px !important; font-size: 13px !important; }
+    .nav-tabrow .idx-tab { padding: 10px 12px 9px !important; font-size: 14px !important; }
+    .nav-periodrow { padding: 10px 12px !important; gap: 8px !important; }
+    .nav-periodrow .nav-periods { flex-wrap: nowrap !important; overflow-x: auto; max-width: 100%; }
+    .nav-periodrow { flex-wrap: nowrap !important; }
     .teaser-grid { grid-template-columns: 1fr !important; gap: 14px !important; }
     /* タブの中身（display:grid）が子の最小幅で画面より広がらないように */
     .fig-scope > div { grid-template-columns: minmax(0, 1fr); }
@@ -4200,6 +4225,7 @@ sheet.textContent = `
 
   /* ===== MOBILE (600px and below) ===== */
   @media (max-width: 600px) {
+    .sp-hero { grid-template-columns: 1fr !important; row-gap: 24px; padding-top: 24px !important; }
     .pie-box { height: 300px !important; }
     .cb-row { grid-template-columns: 1fr auto !important; row-gap: 4px; }
     .cb-row > div { grid-column: 1 / -1; grid-row: 2; }
